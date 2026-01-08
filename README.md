@@ -2,8 +2,11 @@
 
 ## Designed with ❤️ by **Atish Ak Sharma**.
 
+<img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo.png" style="max-width:100%; width:170px;" /> 
+
 A modern, fast, and beautiful file explorer built with **React**, **Electron**, and **Vite**.
-<img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo.png" style="max-width:100%; width:170px;" />
+
+
 ## ✨ Features
 
 - **Standard File Operations**: Open, Cut, Copy, Paste, Delete (to Trash), Rename, New Folder, New File.
