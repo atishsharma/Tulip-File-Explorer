@@ -1,7 +1,7 @@
 {
   "name": "tulip-file-explorer",
   "private": true,
-  "version": "1.4.3.001",
+  "version": "1.4.3-1",
   "description": "A modern cross-platform file explorer with glass effect UI",
   "author": "Atish Ak Sharma <atishaksharma@gmail.com> (https://atishakasharma.com/)",
   "type": "module",

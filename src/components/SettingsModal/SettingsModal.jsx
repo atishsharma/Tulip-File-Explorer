@@ -88,7 +88,7 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                             <img src={logo} alt="Tulip" className="about-logo" />
                             <div className="about-app-info">
                                 <span className="about-app-name">Tulip File Explorer</span>
-                                <span className="about-version">Version 1.4.3.001</span>
+                                <span className="about-version">Version 1.4.3-1</span>
                             </div>
                         </div>
                         <div className="about-info">
