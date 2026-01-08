@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.4.3",
   "description": "A modern cross-platform file explorer with glass effect UI",
-  "author": "Atish Ak Sharma",
+  "author": "Atish Ak Sharma <atishaksharma@gmail.com> (https://atishakasharma.com/)",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
