@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.4.3",
   "description": "A modern cross-platform file explorer with glass effect UI",
+  "author": "Atish Ak Sharma",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -11,7 +12,7 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5174 && electron .\"",
-    "dist": "vite build && electron-builder"
+    "dist": "vite build && electron-builder --win --mac --linux"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -33,15 +34,32 @@
     },
     "mac": {
       "icon": "build/icon.icns",
-      "target": "dmg"
+      "target": {
+        "target": "zip",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
     },
     "win": {
       "icon": "build/icon.ico",
-      "target": "nsis"
+      "target": {
+        "target": "zip",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
     },
     "linux": {
       "icon": "build/icon.png",
-      "target": "AppImage",
+      "target": {
+        "target": "AppImage",
+        "arch": [
+          "x64"
+        ]
+      },
       "category": "Utility"
     }
   }

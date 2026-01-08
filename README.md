@@ -1,11 +1,7 @@
 # Tulip File Explorer 🌷
 
 A modern, fast, and beautiful file explorer built with **React**, **Electron**, and **Vite**.
-
-Designed by **Atish Ak Sharma**.
-
-![Tulip File Explorer](https://github.com/atishsharma/Tulip-File-Explorer/raw/main/src/assets/logo.png)
-
+<img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo.png" style="max-width:100%; width:300px;" />
 ## ✨ Features
 
 - **Standard File Operations**: Open, Cut, Copy, Paste, Delete (to Trash), Rename, New Folder, New File.
