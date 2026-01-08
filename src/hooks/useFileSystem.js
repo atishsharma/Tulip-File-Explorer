@@ -7,23 +7,28 @@ export function useFileSystem() {
     const [error, setError] = useState(null);
     const [specialFolders, setSpecialFolders] = useState([]);
     const [drives, setDrives] = useState([]);
-    const [history, setHistory] = useState([]);
+    const [cloudDrives, setCloudDrives] = useState([]);
+    const [navigationHistory, setNavigationHistory] = useState([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
     const [clipboard, setClipboard] = useState(null); // { action: 'cut'|'copy', items: [] }
 
-    // Initialize: get home path, special folders, and drives
+    // Initialize on mount
     useEffect(() => {
         async function init() {
             try {
                 if (window.electronAPI) {
-                    const [homePath, folders, driveList] = await Promise.all([
+                    const [homePath, folders, driveList, cloudList] = await Promise.all([
                         window.electronAPI.getHomePath(),
                         window.electronAPI.getSpecialFolders(),
                         window.electronAPI.getDrives(),
+                        window.electronAPI.rclone.getMounted(),
                     ]);
 
                     setSpecialFolders(folders);
                     setDrives(driveList);
+                    if (Array.isArray(cloudList)) {
+                        setCloudDrives(cloudList);
+                    }
 
                     // Navigate to home
                     navigateToPath(homePath, true);
@@ -39,6 +44,22 @@ export function useFileSystem() {
         }
 
         init();
+
+        // Listen for drive changes
+        if (window.electronAPI?.onDrivesUpdated) {
+            const unsubscribe = window.electronAPI.onDrivesUpdated((data) => {
+                if (data.drives) {
+                    setDrives(data.drives);
+                }
+                if (data.rcloneMounts) {
+                    setCloudDrives(data.rcloneMounts);
+                }
+            });
+
+            return () => {
+                unsubscribe();
+            };
+        }
     }, []);
 
     const navigateToPath = useCallback(async (path, isInitial = false) => {
@@ -56,14 +77,14 @@ export function useFileSystem() {
 
                 // Update history
                 if (!isInitial) {
-                    setHistory((prev) => {
+                    setNavigationHistory((prev) => {
                         const newHistory = prev.slice(0, historyIndex + 1);
                         newHistory.push(result.path);
                         return newHistory;
                     });
                     setHistoryIndex((prev) => prev + 1);
                 } else {
-                    setHistory([path]);
+                    setNavigationHistory([path]);
                     setHistoryIndex(0);
                 }
             } else {
@@ -155,9 +176,16 @@ export function useFileSystem() {
         await window.electronAPI.openWith(item.path);
     }, []);
 
-    const refresh = useCallback(() => {
+    const refresh = useCallback(async () => {
         if (currentPath) {
             navigateToPath(currentPath, true);
+        }
+        // Also refresh drives/cloud drives
+        if (window.electronAPI) {
+            const driveList = await window.electronAPI.getDrives();
+            setDrives(driveList);
+            const cloudList = await window.electronAPI.rclone.getMounted();
+            if (Array.isArray(cloudList)) setCloudDrives(cloudList);
         }
     }, [currentPath, navigateToPath]);
 
@@ -277,5 +305,6 @@ export function useFileSystem() {
         clipboard,
         openWith,
         deleteItems,
+        cloudDrives,
     };
 }

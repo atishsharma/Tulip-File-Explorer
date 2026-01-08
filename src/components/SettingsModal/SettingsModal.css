@@ -201,6 +201,10 @@
     color: var(--text-primary);
 }
 
+.about-value a:hover {
+    text-decoration: underline;
+}
+
 /* About Header with Logo */
 .about-header {
     display: flex;
@@ -233,4 +237,37 @@
 .about-version {
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
+}
+
+.update-btn {
+    width: 100%;
+    padding: 12px 20px;
+    margin-top: 20px;
+    background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.update-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    filter: brightness(1.1);
+}
+
+.update-btn:active {
+    transform: translateY(0);
+}
+
+.update-icon {
+    font-size: 1.2rem;
 }

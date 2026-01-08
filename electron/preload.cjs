@@ -45,4 +45,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Context menu
     showContextMenu: (menuType, itemPath) => ipcRenderer.invoke('show-context-menu', menuType, itemPath),
+
+    // Rclone
+    rclone: {
+        checkInstalled: () => ipcRenderer.invoke('rclone:check-installed'),
+        listRemotes: () => ipcRenderer.invoke('rclone:list-remotes'),
+        mount: (remoteName, remoteType) => ipcRenderer.invoke('rclone:mount', remoteName, remoteType),
+        unmount: (remoteName) => ipcRenderer.invoke('rclone:unmount', remoteName),
+        getMounted: () => ipcRenderer.invoke('rclone:get-mounted'),
+        openConfig: () => ipcRenderer.invoke('rclone:open-config')
+    },
+    openExternal: (url) => ipcRenderer.invoke('open-external', url),
+    onDrivesChanged: (callback) => {
+        const subscription = (event) => callback();
+        ipcRenderer.on('drives-changed', subscription);
+        return () => ipcRenderer.removeListener('drives-changed', subscription);
+    },
+    onDrivesUpdated: (callback) => {
+        const subscription = (event, data) => callback(data);
+        ipcRenderer.on('drives-updated', subscription);
+        return () => ipcRenderer.removeListener('drives-updated', subscription);
+    }
 });

@@ -117,6 +117,68 @@
     color: var(--text-tertiary);
 }
 
+.add-cloud-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.add-cloud-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    filter: brightness(1.1);
+}
+
+.add-cloud-btn:active {
+    transform: translateY(0);
+}
+
+.add-cloud-icon {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.add-cloud-text {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.sidebar-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.sidebar-icon-img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.cloud-drive-name-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cloud-drive-provider {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    font-weight: 400;
+}
+
 /* Animation for new items */
 @keyframes slideInLeft {
     from {

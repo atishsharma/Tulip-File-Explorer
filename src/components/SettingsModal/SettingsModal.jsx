@@ -88,7 +88,7 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                             <img src={logo} alt="Tulip" className="about-logo" />
                             <div className="about-app-info">
                                 <span className="about-app-name">Tulip File Explorer</span>
-                                <span className="about-version">Version 1.4.3</span>
+                                <span className="about-version">Version 1.4.3.001</span>
                             </div>
                         </div>
                         <div className="about-info">
@@ -105,6 +105,13 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                                 <span className="about-value">Atish Ak Sharma</span>
                             </div>
                         </div>
+                        <button
+                            className="update-btn"
+                            onClick={() => window.electronAPI.openExternal('https://github.com/atishsharma/Tulip-File-Explorer/releases')}
+                        >
+                            <span className="update-icon">📥</span>
+                            <span>Check for Updates</span>
+                        </button>
                     </section>
                 </div>
             </div>
