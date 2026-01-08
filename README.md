@@ -1,16 +1,93 @@
-# React + Vite
+# Tulip File Explorer 🌷
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, fast, and beautiful file explorer built with **React**, **Electron**, and **Vite**.
 
-Currently, two official plugins are available:
+Designed by **Atish Ak Sharma**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+![Tulip File Explorer](https://github.com/atishsharma/Tulip-File-Explorer/raw/main/src/assets/logo.png)
 
-## React Compiler
+## ✨ Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Standard File Operations**: Open, Cut, Copy, Paste, Delete (to Trash), Rename, New Folder, New File.
+- **Glassmorphism UI**: Stunning, responsive interface aimed at replicating the feel of modern iOS/Windows 11 design.
+- **Dual Application Modes**: Seamlessly switch between **Light** and **Dark** themes.
+- **Preview Panel**: Instant preview for Images, Videos, Audio, PDFs, and Code files with syntax highlighting.
+- **Rich Thumbnails**: High-performance thumbnail generation for images and videos with caching.
+- **Advanced Sorting & Grouping**:
+  - Sort by Name, Date, Size, Type.
+  - Group by Type, Date, Size (Windows-style grouping).
+- **Navigation**: Full history support (Back, Forward, Up), Breadcrumbs, and Quick Access sidebar.
+- **Keyboard Shortcuts**:
+  - `Ctrl + C` / `Ctrl + V` / `Ctrl + X` for clipboard operations.
+  - `Delete` for deleting items.
+  - `F2` to Rename.
+  - `Alt + Enter` for Properties.
+  - `Ctrl + A` to Select All.
+  - `Shift + Arrow Keys` for range selection.
+- **Cross-Platform**: Builds for Windows, Linux (AppImage), and macOS.
 
-## Expanding the ESLint configuration
+## 🛠 Tech Stack
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- **Frontend**: React.js 18 (Vite 5)
+- **Backend/Shell**: Electron 28
+- **Styling**: Pure CSS (Variables, Glassmorphism) - No CSS frameworks used!
+- **State Management**: React Hooks
+- **Build Tool**: Electron Builder
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+
+### Installation
+
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/atishsharma/Tulip-File-Explorer.git
+    cd Tulip-File-Explorer
+    ```
+
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+3.  Run in development mode:
+    ```bash
+    npm run electron:dev
+    ```
+
+### Building for Production
+
+To create a distributable (exe/dmg/AppImage):
+
+```bash
+npm run dist
+```
+
+Build artifacts will be stored in the `dist` directory.
+
+## 📦 Project Structure
+
+```
+Tulip-File-Explorer/
+├── electron/        # Main process (main.cjs, preload.cjs) & File System Logic
+├── src/
+│   ├── components/  # React components (FileExplorer, Sidebar, PreviewPanel, etc.)
+│   ├── hooks/       # Custom hooks (useFileSystem, useTheme)
+│   ├── utils/       # Helper functions and Icon mappings
+│   ├── assets/      # Static assets
+│   ├── App.jsx      # Main layout
+│   └── main.jsx     # Entry point
+├── dist/            # Build artifacts
+└── public/          # Public static assets
+```
+
+## 📝 License
+
+This project is licensed under the **MIT License**.
+
+---
+Designed with ❤️ by **Atish Ak Sharma**.
