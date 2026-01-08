@@ -1,7 +1,9 @@
-# Tulip File Explorer 🌷
+# 🌷. Tulip File Explorer
+
+## Designed with ❤️ by **Atish Ak Sharma**.
 
 A modern, fast, and beautiful file explorer built with **React**, **Electron**, and **Vite**.
-<img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo.png" style="max-width:100%; width:300px;" />
+<img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo.png" style="max-width:100%; width:170px;" />
 ## ✨ Features
 
 - **Standard File Operations**: Open, Cut, Copy, Paste, Delete (to Trash), Rename, New Folder, New File.
@@ -36,6 +38,13 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 
 - Node.js (v16 or higher)
 - npm or yarn
+
+### 📝 Release Notes
+
+ First Release : 09 January 2026
+ Version : 1.4.3
+ Available for : Windows, Linux, macOS
+Download : https://github.com/atishsharma/Tulip-File-Explorer/releases
 
 ### Installation
 
@@ -84,6 +93,3 @@ Tulip-File-Explorer/
 ## 📝 License
 
 This project is licensed under the **MIT License**.
-
----
-Designed with ❤️ by **Atish Ak Sharma**.
