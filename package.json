@@ -29,6 +29,11 @@
   "build": {
     "appId": "com.tulip.fileexplorer",
     "productName": "Tulip File Explorer",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
     "directories": {
       "buildResources": "assets"
     },
@@ -54,12 +59,20 @@
     },
     "linux": {
       "icon": "build/icon.png",
-      "target": {
-        "target": "AppImage",
-        "arch": [
-          "x64"
-        ]
-      },
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "category": "Utility"
     }
   }
