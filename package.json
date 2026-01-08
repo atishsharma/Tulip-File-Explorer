@@ -1,7 +1,7 @@
 {
   "name": "tulip-file-explorer",
   "private": true,
-  "version": "1.4.3",
+  "version": "1.4.3-1",
   "description": "A modern cross-platform file explorer with glass effect UI",
   "author": "Atish Ak Sharma <atishaksharma@gmail.com> (https://atishakasharma.com/)",
   "type": "module",
@@ -38,7 +38,7 @@
       "buildResources": "assets"
     },
     "mac": {
-      "icon": "build/icon.icns",
+      "icon": "build/icons/512x512.png",
       "target": {
         "target": "zip",
         "arch": [
@@ -48,7 +48,7 @@
       }
     },
     "win": {
-      "icon": "build/icon.ico",
+      "icon": "build/icons/icon.ico",
       "target": {
         "target": "zip",
         "arch": [
@@ -58,7 +58,7 @@
       }
     },
     "linux": {
-      "icon": "build/icon.png",
+      "icon": "build/icons/512x512.png",
       "target": [
         {
           "target": "deb",

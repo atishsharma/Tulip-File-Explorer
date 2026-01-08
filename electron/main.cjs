@@ -8,6 +8,71 @@ const crypto = require('crypto');
 const fileSystem = require('./fileSystem.cjs');
 
 let mainWindow;
+let driveWatcher = null;
+
+// Watch for drive changes
+function startDriveMonitoring() {
+    if (mainWindow && !driveWatcher) {
+        // Monitor /media and /run/media for Linux mount point changes
+        const platform = os.platform();
+
+        if (platform === 'linux') {
+            try {
+                // Watch common Linux mount directories
+                const watchPaths = ['/media', '/run/media', '/mnt'];
+
+                watchPaths.forEach(watchPath => {
+                    if (fsSync.existsSync(watchPath)) {
+                        try {
+                            fsSync.watch(watchPath, { recursive: true }, (eventType, filename) => {
+                                if (mainWindow && !mainWindow.isDestroyed()) {
+                                    mainWindow.webContents.send('drives-changed');
+                                }
+                            });
+                        } catch (e) {
+                            console.log(`Could not watch ${watchPath}:`, e.message);
+                        }
+                    }
+                });
+
+                // Also poll for drive changes every 3 seconds as a backup
+                driveWatcher = setInterval(async () => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        try {
+                            const drives = await fileSystem.getDrives();
+                            const rcloneMounts = await rcloneManager.getMounted();
+                            mainWindow.webContents.send('drives-updated', { drives, rcloneMounts });
+                        } catch (error) {
+                            console.error('Drive monitoring error:', error);
+                        }
+                    }
+                }, 3000);
+            } catch (error) {
+                console.error('Failed to start drive monitoring:', error);
+            }
+        } else if (platform === 'darwin' || platform === 'win32') {
+            // Poll for drive changes on macOS and Windows
+            driveWatcher = setInterval(async () => {
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    try {
+                        const drives = await fileSystem.getDrives();
+                        const rcloneMounts = await rcloneManager.getMounted();
+                        mainWindow.webContents.send('drives-updated', { drives, rcloneMounts });
+                    } catch (error) {
+                        console.error('Drive monitoring error:', error);
+                    }
+                }
+            }, 3000);
+        }
+    }
+}
+
+function stopDriveMonitoring() {
+    if (driveWatcher) {
+        clearInterval(driveWatcher);
+        driveWatcher = null;
+    }
+}
 
 // Thumbnail cache directory
 const THUMBNAIL_CACHE_DIR = path.join(app.getPath('userData'), '.thumbnails');
@@ -50,7 +115,7 @@ function createWindow() {
             nodeIntegration: false,
             webSecurity: false,
         },
-        icon: path.join(__dirname, '../build/icon.png')
+        icon: path.join(__dirname, '../build/icons/512x512.png')
     });
 
     if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
@@ -60,7 +125,13 @@ function createWindow() {
     }
 
     mainWindow.on('closed', () => {
+        stopDriveMonitoring();
         mainWindow = null;
+    });
+
+    // Start drive monitoring once window is ready
+    mainWindow.webContents.on('did-finish-load', () => {
+        startDriveMonitoring();
     });
 }
 
@@ -437,6 +508,14 @@ ipcMain.handle('show-context-menu', async (event, menuType, itemPath) => {
                 { type: 'separator' },
                 { label: 'Properties', click: () => resolve('properties') }
             );
+        } else if (menuType === 'cloud-drive') {
+            template.push(
+                { label: 'Open', click: () => resolve('open') },
+                { type: 'separator' },
+                { label: 'Unmount', click: () => resolve('unmount') },
+                { type: 'separator' },
+                { label: 'Properties', click: () => resolve('properties') }
+            );
         } else if (menuType === 'background') {
             template.push(
                 { label: 'New Folder', click: () => resolve('new-folder') },
@@ -602,9 +681,105 @@ ipcMain.handle('fs:open-archive-manager', async (event, filePath) => {
     return { success: true };
 });
 
+const RcloneManager = require('./rcloneManager.cjs');
+const rcloneManager = new RcloneManager(app.getPath('userData'));
+
+// ... (existing code) ...
+
+// Rclone handlers
+ipcMain.handle('rclone:check-installed', async () => {
+    return await rcloneManager.checkInstalled();
+});
+
+ipcMain.handle('rclone:list-remotes', async () => {
+    try {
+        const remotes = await rcloneManager.listRemotes();
+        return { success: true, remotes };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('rclone:mount', async (event, remoteName, remoteType) => {
+    try {
+        const result = await rcloneManager.mountRemote(remoteName, remoteType);
+        return result;
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('rclone:unmount', async (event, remoteName) => {
+    try {
+        return await rcloneManager.unmountRemote(remoteName);
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('rclone:get-mounted', async () => {
+    // Return list of currently mounted remotes with stats
+    return await rcloneManager.getMounted();
+});
+
+ipcMain.handle('rclone:open-config', async () => {
+    try {
+        const { exec } = require('child_process');
+        const platform = os.platform();
+
+        if (platform === 'win32') {
+            exec('start cmd /k "rclone config"');
+        } else if (platform === 'darwin') {
+            exec('osascript -e \'tell application "Terminal" to do script "rclone config"\'');
+        } else {
+            // Linux - try common terminal emulators
+            const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm'];
+            let opened = false;
+            for (const term of terminals) {
+                try {
+                    if (term === 'gnome-terminal') {
+                        exec(`${term} -- bash -c "rclone config; exec bash"`);
+                    } else {
+                        exec(`${term} -e "rclone config"`);
+                    }
+                    opened = true;
+                    break;
+                } catch (e) {
+                    continue;
+                }
+            }
+            if (!opened) {
+                exec('x-terminal-emulator -e "rclone config"');
+            }
+        }
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+
+ipcMain.handle('open-external', async (event, url) => {
+    try {
+        await shell.openExternal(url);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+
 app.whenReady().then(() => {
     ensureThumbnailCacheDir();
+    rcloneManager.checkInstalled(); // Pre-check
     createWindow();
+});
+
+app.on('will-quit', async (e) => {
+    // Attempt to clean up mounts before quitting
+    e.preventDefault();
+    await rcloneManager.unmountAll();
+    app.exit();
 });
 
 app.on('window-all-closed', () => {

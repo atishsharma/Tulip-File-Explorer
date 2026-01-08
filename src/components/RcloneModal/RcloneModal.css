@@ -1,0 +1,223 @@
+.rclone-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.rclone-modal {
+    background: var(--surface);
+    /* Ensure solid background for readability */
+    background-color: var(--surface);
+    width: 400px;
+    max-width: 90vw;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Ensure modal content is opaque if surface is transparent-ish */
+[data-theme="dark"] .rclone-modal {
+    background: #1e1e1e;
+}
+
+[data-theme="light"] .rclone-modal {
+    background: #ffffff;
+}
+
+.rclone-header {
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.rclone-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.rclone-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    color: var(--text-primary);
+}
+
+.rclone-close:hover {
+    background: rgba(128, 128, 128, 0.1);
+}
+
+.rclone-content {
+    padding: 16px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.rclone-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rclone-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(128, 128, 128, 0.05);
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.rclone-item:hover {
+    background: rgba(128, 128, 128, 0.1);
+}
+
+.rclone-item-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.rclone-item-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rclone-item-name {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.rclone-item-type {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+.rclone-icon {
+    font-size: 1.2rem;
+}
+
+.rclone-icon-img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.rclone-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--glass-border);
+    background: rgba(128, 128, 128, 0.03);
+}
+
+.rclone-config-btn {
+    width: 100%;
+    padding: 10px 16px;
+    background: rgba(128, 128, 128, 0.08);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.rclone-config-btn:hover {
+    background: rgba(128, 128, 128, 0.12);
+    transform: translateY(-1px);
+}
+
+.rclone-config-icon {
+    font-size: 1.1rem;
+}
+
+.rclone-empty {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.rclone-empty-icon {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.rclone-empty-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+}
+
+.rclone-empty-message {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.rclone-action-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.rclone-action-btn.mount {
+    background: var(--primary);
+    color: white;
+}
+
+.rclone-action-btn.mount:hover {
+    opacity: 0.9;
+}
+
+.rclone-action-btn.unmount {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+}
+
+.rclone-action-btn.unmount:hover {
+    background: rgba(220, 38, 38, 0.2);
+}
+
+.rclone-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.rclone-loading,
+.rclone-error {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+}
+
+.rclone-error {
+    color: #dc2626;
+}

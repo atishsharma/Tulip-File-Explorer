@@ -5,6 +5,7 @@ import FileExplorer from './components/FileExplorer/FileExplorer';
 import PreviewPanel from './components/PreviewPanel/PreviewPanel';
 import SettingsModal from './components/SettingsModal/SettingsModal';
 import PropertiesModal from './components/PropertiesModal/PropertiesModal';
+import RcloneModal from './components/RcloneModal/RcloneModal';
 import { useTheme } from './hooks/useTheme';
 import { useFileSystem } from './hooks/useFileSystem';
 import './App.css';
@@ -19,6 +20,7 @@ function App() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
+  const [showRcloneModal, setShowRcloneModal] = useState(false);
   const [propertiesItem, setPropertiesItem] = useState(null);
   const [clipboardStatus, setClipboardStatus] = useState(null);
   const [primaryColor, setPrimaryColor] = useState(() => {
@@ -32,6 +34,7 @@ function App() {
     error,
     specialFolders,
     drives,
+    cloudDrives,
     navigateTo,
     navigateBack,
     navigateForward,
@@ -129,9 +132,12 @@ function App() {
         <Sidebar
           specialFolders={specialFolders}
           drives={drives}
+          cloudDrives={cloudDrives}
           currentPath={currentPath}
           onNavigate={navigateTo}
           onShowContextMenu={handleContextMenuAction}
+          onAddCloudDrive={() => setShowRcloneModal(true)}
+          onRefresh={refresh}
         />
         <FileExplorer
           currentPath={currentPath}
@@ -184,6 +190,15 @@ function App() {
         onClose={() => setShowProperties(false)}
         item={propertiesItem}
         onRename={renameItem}
+      />
+
+      {/* Rclone Modal */}
+      <RcloneModal
+        isOpen={showRcloneModal}
+        onClose={() => setShowRcloneModal(false)}
+        onMount={(remote, path) => {
+          refresh(); // Refresh drive list/file explorer if needed
+        }}
       />
     </div>
   );

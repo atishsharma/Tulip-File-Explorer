@@ -1,8 +1,9 @@
 import { getFolderIcon, getDriveIcon } from '../../utils/fileIcons';
 import { formatDriveCapacity, getDriveUsagePercent } from '../../utils/formatters';
+import { getRcloneProviderInfo, capitalizeFirst } from '../../utils/rcloneProviders';
 import './Sidebar.css';
 
-function Sidebar({ specialFolders, drives, currentPath, onNavigate, onShowContextMenu }) {
+function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavigate, onShowContextMenu, onAddCloudDrive, onRefresh }) {
 
     const handleDriveContextMenu = async (e, drive) => {
         e.preventDefault();
@@ -10,6 +11,28 @@ function Sidebar({ specialFolders, drives, currentPath, onNavigate, onShowContex
             const action = await onShowContextMenu('drive', { path: drive.path, name: drive.name });
             if (action === 'open') {
                 onNavigate(drive.path);
+            }
+        }
+    };
+
+    const handleCloudDriveContextMenu = async (e, drive) => {
+        e.preventDefault();
+        if (onShowContextMenu) {
+            const action = await onShowContextMenu('cloud-drive', { path: drive.path, name: drive.name });
+            if (action === 'open') {
+                onNavigate(drive.path);
+            } else if (action === 'unmount') {
+                try {
+                    const result = await window.electronAPI.rclone.unmount(drive.name);
+                    if (result.success) {
+                        // Trigger a refresh to update the sidebar
+                        if (onRefresh) {
+                            onRefresh();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Failed to unmount:', error);
+                }
             }
         }
     };
@@ -79,6 +102,63 @@ function Sidebar({ specialFolders, drives, currentPath, onNavigate, onShowContex
                         </button>
                     ))}
                 </nav>
+            </section>
+
+            {/* Cloud Drives Action */}
+            <section className="sidebar-section">
+                <button
+                    className="add-cloud-btn"
+                    onClick={onAddCloudDrive}
+                    title="Connect Cloud Drive"
+                >
+                    <span className="add-cloud-icon">+</span>
+                    <span className="add-cloud-text">Add Cloud Drive</span>
+                </button>
+
+                {cloudDrives.length > 0 && (
+                    <nav className="sidebar-nav" style={{ marginTop: '8px' }}>
+                        {cloudDrives.map((drive, index) => {
+                            const providerInfo = getRcloneProviderInfo(drive.type || 'unknown');
+                            const isImage = typeof providerInfo.icon === 'string' && providerInfo.icon.includes('.png');
+
+                            return (
+                                <button
+                                    key={drive.path || index}
+                                    className={`sidebar-item drive-item ${currentPath === drive.path ? 'active' : ''}`}
+                                    onClick={() => onNavigate(drive.path)}
+                                    onContextMenu={(e) => handleCloudDriveContextMenu(e, drive)}
+                                >
+                                    {isImage ? (
+                                        <img
+                                            src={providerInfo.icon}
+                                            alt={providerInfo.name}
+                                            className="sidebar-icon-img"
+                                        />
+                                    ) : (
+                                        <span className="sidebar-icon">{providerInfo.icon}</span>
+                                    )}
+                                    <div className="drive-info">
+                                        <div className="cloud-drive-name-section">
+                                            <span className="sidebar-label">{capitalizeFirst(drive.name)}</span>
+                                            <span className="cloud-drive-provider">({providerInfo.name})</span>
+                                        </div>
+                                        {drive.total && (
+                                            <div className="drive-capacity">
+                                                <div className="drive-bar">
+                                                    <div
+                                                        className="drive-bar-fill"
+                                                        style={{ width: `${getDriveUsagePercent(drive)}%` }}
+                                                    />
+                                                </div>
+                                                <span className="drive-text">{formatDriveCapacity(drive)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </nav>
+                )}
             </section>
         </aside>
     );
