@@ -1,0 +1,128 @@
+.titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--titlebar-height);
+    padding: 0 var(--space-sm);
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid var(--border);
+    -webkit-app-region: drag;
+}
+
+.titlebar-drag {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.titlebar-logo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding-left: var(--space-sm);
+}
+
+.titlebar-icon {
+    font-size: var(--font-size-xl);
+}
+
+.titlebar-title {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+}
+
+.titlebar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    -webkit-app-region: no-drag;
+}
+
+.titlebar-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+}
+
+.titlebar-btn:hover {
+    background: var(--bg-surface-hover);
+}
+
+.titlebar-btn:active {
+    background: var(--bg-surface-active);
+}
+
+.theme-toggle {
+    margin-right: var(--space-md);
+}
+
+.theme-toggle:hover {
+    background: var(--primary-light-bg);
+    color: var(--primary);
+}
+
+.settings-btn {
+    margin-right: var(--space-xs);
+}
+
+.settings-btn:hover {
+    background: var(--primary-light-bg);
+    color: var(--primary);
+}
+
+.preview-toggle {
+    margin-right: var(--space-xs);
+}
+
+.preview-toggle.active {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.preview-toggle:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.window-controls {
+    display: flex;
+    align-items: center;
+}
+
+.window-btn {
+    border-radius: 0;
+}
+
+.window-btn.minimize {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.window-btn.close {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.window-btn.close:hover {
+    background: var(--error);
+    color: white;
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] .titlebar {
+    background: var(--glass-bg);
+}
+
+.titlebar-icon-img {
+    width: 20px;
+    height: 20px;
+    margin-right: var(--space-sm);
+    object-fit: contain;
+}

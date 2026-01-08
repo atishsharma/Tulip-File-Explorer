@@ -1,0 +1,207 @@
+.properties-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn var(--transition-fast);
+}
+
+.properties-modal {
+    width: 380px;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.properties-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-md);
+    padding: var(--space-xl);
+    border-bottom: 1px solid var(--border);
+}
+
+.properties-icon {
+    font-size: 48px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.properties-title-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.properties-title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--space-xs);
+}
+
+.properties-name-input {
+    width: 100%;
+    padding: var(--space-sm);
+    font-size: var(--font-size-lg);
+    font-family: inherit;
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    background: var(--bg-surface);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius-md);
+    outline: none;
+}
+
+.properties-type {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.properties-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.properties-close:hover {
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+}
+
+.properties-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-lg) var(--space-xl);
+}
+
+.properties-section {
+    margin-bottom: var(--space-lg);
+}
+
+.properties-section:last-child {
+    margin-bottom: 0;
+}
+
+.properties-section-title {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-sm);
+}
+
+.properties-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.properties-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-md);
+}
+
+.properties-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.properties-value {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    text-align: right;
+    word-break: break-word;
+}
+
+.properties-path {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: var(--font-size-xs);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Attributes */
+.properties-attributes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.attribute-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.attribute-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+/* Footer */
+.properties-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-sm);
+    padding: var(--space-lg) var(--space-xl);
+    border-top: 1px solid var(--border);
+}
+
+.properties-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-lg);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.properties-btn.outlined {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.properties-btn.outlined:hover {
+    background: var(--bg-surface-hover);
+    border-color: var(--border-strong);
+}
+
+.properties-btn.primary {
+    background: var(--primary);
+    color: var(--text-on-primary);
+    min-width: 80px;
+    justify-content: center;
+}
+
+.properties-btn.primary:hover {
+    background: var(--primary-hover);
+}

@@ -1,0 +1,135 @@
+.sidebar {
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--sidebar-border);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.sidebar-section {
+    padding: var(--space-md);
+}
+
+.sidebar-section:not(:last-child) {
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-heading {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-sm);
+    padding-left: var(--space-sm);
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    text-align: left;
+    transition: all var(--transition-fast);
+    width: 100%;
+}
+
+.sidebar-item:hover {
+    background: var(--bg-surface-hover);
+}
+
+.sidebar-item:active {
+    background: var(--bg-surface-active);
+    transform: scale(0.98);
+}
+
+.sidebar-item.active {
+    background: var(--primary-light);
+    color: var(--primary);
+}
+
+.sidebar-item.active .sidebar-icon {
+    transform: scale(1.1);
+}
+
+.sidebar-icon {
+    font-size: var(--font-size-lg);
+    line-height: 1;
+    transition: transform var(--transition-fast);
+}
+
+.sidebar-label {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-normal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Drive Items */
+.drive-item {
+    align-items: flex-start;
+}
+
+.drive-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.drive-capacity {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.drive-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.drive-bar-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: var(--radius-full);
+    transition: width var(--transition-normal);
+}
+
+.drive-text {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+}
+
+/* Animation for new items */
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.sidebar-item {
+    animation: slideInLeft var(--transition-normal) ease-out;
+}

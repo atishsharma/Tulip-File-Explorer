@@ -1,0 +1,211 @@
+.preview-panel {
+    width: 280px;
+    min-width: 200px;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border);
+    background: var(--sidebar-bg);
+    position: relative;
+}
+
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+}
+
+/* Resize Handle */
+.resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: ew-resize;
+    background: transparent;
+    transition: background var(--transition-fast);
+    z-index: 10;
+}
+
+.resize-handle:hover {
+    background: var(--primary);
+}
+
+.preview-content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.preview-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-md);
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: var(--space-xl);
+}
+
+.preview-empty-icon {
+    font-size: 48px;
+    opacity: 0.5;
+}
+
+.preview-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
+    overflow: hidden;
+    min-height: 200px;
+}
+
+.preview-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+}
+
+.preview-video {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: var(--radius-md);
+}
+
+.preview-audio-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-lg);
+    width: 100%;
+}
+
+.preview-audio {
+    width: 100%;
+}
+
+.preview-text {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    padding: var(--space-md);
+    background: var(--bg-base);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.truncated-notice {
+    display: block;
+    margin-top: var(--space-md);
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+.preview-folder,
+.preview-pdf,
+.preview-unknown,
+.preview-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+    color: var(--text-tertiary);
+    text-align: center;
+}
+
+.preview-icon-large {
+    font-size: 64px;
+    line-height: 1;
+}
+
+/* Preview Info */
+.preview-info {
+    padding: var(--space-lg);
+    border-top: 1px solid var(--border);
+    background: var(--glass-bg);
+}
+
+.preview-filename {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    margin-bottom: var(--space-xs);
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+.preview-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--bg-surface);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-md);
+}
+
+.preview-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+}
+
+.meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: var(--font-size-xs);
+}
+
+.meta-label {
+    color: var(--text-tertiary);
+}
+
+.meta-value {
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    text-align: right;
+}
+
+.preview-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    width: 100%;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--primary);
+    color: var(--text-on-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.preview-action-btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.preview-action-btn:active {
+    transform: translateY(0);
+}
