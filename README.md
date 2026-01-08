@@ -1,6 +1,6 @@
-# 🌷. Tulip File Explorer
+# 🌷 Tulip File Explorer
 
-## Designed with ❤️ by **Atish Ak Sharma**.
+### Designed with ❤️ by **Atish Ak Sharma**.
 
 <img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo.png" style="max-width:100%; width:170px;" /> 
 
