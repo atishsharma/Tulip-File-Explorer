@@ -43,11 +43,10 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 - npm or yarn
 
 ### 📝 Release Notes
-
- First Release : 09 January 2026
- Version : 1.4.3
- Available for : Windows, Linux, macOS
-Download : https://github.com/atishsharma/Tulip-File-Explorer/releases
+ - First Release : 09 January 2026
+ - Version : 1.4.3
+ - Available for : Windows, Linux, macOS
+ - Download : https://github.com/atishsharma/Tulip-File-Explorer/releases
 
 ### Installation
 
