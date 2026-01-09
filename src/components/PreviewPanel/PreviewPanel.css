@@ -1,6 +1,6 @@
 .preview-panel {
-    width: 280px;
-    min-width: 200px;
+    width: 440px;
+    min-width: 196px;
     max-width: 500px;
     display: flex;
     flex-direction: column;

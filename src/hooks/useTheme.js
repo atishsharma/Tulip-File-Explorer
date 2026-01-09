@@ -6,35 +6,49 @@ export function useTheme() {
         const saved = localStorage.getItem('tulip-theme');
         if (saved) return saved;
 
-        // Check system preference
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            return 'dark';
-        }
-        return 'light';
+        // Default to auto if nothing is saved
+        return 'auto';
     });
 
+    const [effectiveTheme, setEffectiveTheme] = useState('light');
+
+    // Determine the actual theme to apply
     useEffect(() => {
-        localStorage.setItem('tulip-theme', theme);
-        document.documentElement.setAttribute('data-theme', theme);
+        if (theme === 'auto') {
+            // Use system preference
+            const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            setEffectiveTheme(isDark ? 'dark' : 'light');
+        } else {
+            setEffectiveTheme(theme);
+        }
     }, [theme]);
 
-    // Listen for system theme changes
+    // Apply the effective theme to the document
     useEffect(() => {
+        localStorage.setItem('tulip-theme', theme);
+        document.documentElement.setAttribute('data-theme', effectiveTheme);
+    }, [theme, effectiveTheme]);
+
+    // Listen for system theme changes (only when in auto mode)
+    useEffect(() => {
+        if (theme !== 'auto') return;
+
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
         const handleChange = (e) => {
-            const saved = localStorage.getItem('tulip-theme');
-            if (!saved) {
-                setTheme(e.matches ? 'dark' : 'light');
-            }
+            setEffectiveTheme(e.matches ? 'dark' : 'light');
         };
 
         mediaQuery.addEventListener('change', handleChange);
         return () => mediaQuery.removeEventListener('change', handleChange);
-    }, []);
+    }, [theme]);
 
     const toggleTheme = () => {
-        setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+        setTheme((prev) => {
+            if (prev === 'light') return 'dark';
+            if (prev === 'dark') return 'auto';
+            return 'light';
+        });
     };
 
-    return { theme, setTheme, toggleTheme };
+    return { theme, effectiveTheme, setTheme, toggleTheme };
 }

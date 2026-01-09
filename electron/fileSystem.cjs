@@ -1,7 +1,13 @@
 const fs = require('fs').promises;
+const fsOriginal = require('fs'); // Import original fs for callback-based methods if needed
+const { promisify } = require('util');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execSync, exec } = require('child_process');
+const execAsync = promisify(exec);
+
+// Promisify statfs if available (Node 19.6+), or use fs.statfs from callback API, or null
+const statfs = fs.statfs || (fsOriginal.statfs ? promisify(fsOriginal.statfs) : null);
 
 /**
  * Get all special/common folders using Electron's app.getPath
@@ -20,6 +26,9 @@ function getSpecialFolders(app) {
     return folders;
 }
 
+// Feature flag for WMIC (will be disabled if it fails)
+let useWmic = true;
+
 /**
  * Get mounted drives based on platform
  */
@@ -29,19 +38,53 @@ async function getDrives() {
 
     try {
         if (platform === 'win32') {
-            // Windows: Check drive letters A-Z
-            for (let i = 65; i <= 90; i++) {
-                const driveLetter = String.fromCharCode(i) + ':';
-                try {
-                    await fs.access(driveLetter + '\\');
-                    const stats = await getDriveStats(driveLetter + '\\');
-                    drives.push({
-                        name: driveLetter,
-                        path: driveLetter + '\\',
-                        ...stats,
-                    });
-                } catch {
-                    // Drive not accessible
+            // Windows: Use WMIC to get all drives with labels in one go (non-blocking)
+            // User requested to use WMIC if it works.
+            try {
+                // Fetch Caption (Letter), VolumeName (Label), Size, FreeSpace
+                const { stdout } = await execAsync('wmic logicaldisk get Caption,VolumeName,Size,FreeSpace /format:csv');
+                const lines = stdout.trim().split('\n').filter(line => line.trim() && !line.startsWith('Node'));
+
+                for (const line of lines) {
+                    const parts = line.split(',');
+                    // Format output is Node,Caption,FreeSpace,Size,VolumeName
+
+                    if (parts.length >= 5) {
+                        const caption = parts[1]; // C:
+                        const free = parseInt(parts[2]) || 0;
+                        const size = parseInt(parts[3]) || 0;
+                        const label = parts[4].trim(); // VolumeName
+
+                        if (caption && caption.includes(':')) {
+                            // "Name (Location)" -> "VolumeName (C:\)"
+                            const location = caption + '\\';
+                            const displayName = label || 'Local Disk';
+
+                            drives.push({
+                                name: `${displayName} (${location})`,
+                                path: location,
+                                total: size,
+                                free: free,
+                                used: size - free
+                            });
+                        }
+                    }
+                }
+            } catch (err) {
+                // Fallback to simple A-Z check if WMIC fails
+                for (let i = 65; i <= 90; i++) {
+                    const driveLetter = String.fromCharCode(i) + ':';
+                    try {
+                        await fs.access(driveLetter + '\\');
+                        const stats = await getDriveStats(driveLetter + '\\');
+
+                        // Fallback format
+                        drives.push({
+                            name: `Local Disk (${driveLetter}\\)`,
+                            path: driveLetter + '\\',
+                            ...stats,
+                        });
+                    } catch { }
                 }
             }
         } else if (platform === 'darwin') {
@@ -116,39 +159,90 @@ async function getDrives() {
 
 /**
  * Get drive statistics (total/free space)
+ * Uses native non-blocking fs.statfs if available
  */
 async function getDriveStats(drivePath) {
     try {
-        const platform = os.platform();
-
-        if (platform === 'win32') {
-            // On Windows, we'd need native modules or wmic
-            return { total: null, free: null };
+        if (statfs) {
+            const stats = await statfs(drivePath);
+            return {
+                total: stats.blocks * stats.bsize,
+                free: stats.bfree * stats.bsize,
+                used: (stats.blocks - stats.bfree) * stats.bsize
+            };
         } else {
-            // Unix-like systems: use df command
-            try {
-                const output = execSync(`df -k "${drivePath}" 2>/dev/null | tail -1`, { encoding: 'utf8' });
-                const parts = output.trim().split(/\s+/);
-                if (parts.length >= 4) {
-                    const total = parseInt(parts[1]) * 1024;
-                    const used = parseInt(parts[2]) * 1024;
-                    const free = parseInt(parts[3]) * 1024;
-                    return { total, free, used };
-                }
-            } catch {
-                return { total: null, free: null };
-            }
+            // Fallback if statfs is not available (older Node versions)
+            // Return nulls to avoid blocking/crashing with execSync
+            console.warn('fs.statfs not available, drive stats skipped');
+            return { total: null, free: null, used: null };
         }
-    } catch {
-        return { total: null, free: null };
+    } catch (error) {
+        // console.error(`Failed to get stats for ${drivePath}:`, error.message);
+        return { total: null, free: null, used: null };
     }
-    return { total: null, free: null };
+}
+
+/**
+ * Get "This PC" view for Windows (drives + special folders as items)
+ */
+async function getThisPCView(app) {
+    // Enabled for all platforms
+    const items = [];
+
+    // Add special folders first
+    const specialFolders = getSpecialFolders(app);
+    for (const folder of specialFolders) {
+        try {
+            const stats = await fs.stat(folder.path);
+            items.push({
+                name: folder.name,
+                path: folder.path,
+                isDirectory: true,
+                isFile: false,
+                isSpecialFolder: true,
+                icon: folder.icon,
+                size: 0,
+                modified: stats.mtime.toISOString(),
+                created: stats.birthtime.toISOString(),
+                extension: null,
+            });
+        } catch (err) {
+            // Folder not accessible, skip
+        }
+    }
+
+    // Add drives
+    const drives = await getDrives();
+    for (const drive of drives) {
+        // Simple consistent object for all platforms
+        items.push({
+            name: drive.name,
+            path: drive.path,
+            isDirectory: true,
+            isFile: false,
+            isDrive: true,
+            size: drive.total || 0,
+            free: drive.free,
+            used: drive.used,
+            modified: null,
+            created: null,
+            extension: null,
+        });
+    }
+
+    return { success: true, items, path: 'thispc://' };
 }
 
 /**
  * Read directory contents with file metadata
  */
 async function readDirectory(dirPath) {
+    // Handle special "This PC" path for Windows
+    if (dirPath === 'thispc://') {
+        // This will be handled by main.cjs, but just in case
+        return { success: false, error: 'Use getThisPCView for This PC path' };
+    }
+
     try {
         const entries = await fs.readdir(dirPath, { withFileTypes: true });
         const items = [];
@@ -222,9 +316,159 @@ async function getFileInfo(filePath) {
     }
 }
 
+/**
+ * specific Windows hidden check using attrib
+ */
+async function getWindowsHiddenAttribute(filePath) {
+    try {
+        const { stdout } = await execAsync(`attrib "${filePath}"`);
+        // Output is like: "A  H       C:\Path\To\File"
+        // Check for 'H' in the first section
+        return stdout.slice(0, 12).includes('H');
+    } catch {
+        return false;
+    }
+}
+
+async function setWindowsHiddenAttribute(filePath, hide) {
+    try {
+        const command = `attrib ${hide ? '+h' : '-h'} "${filePath}"`;
+        await execAsync(command);
+        return true;
+    } catch (error) {
+        console.error('Error setting hidden attribute:', error);
+        return false;
+    }
+}
+
+/**
+ * Recursive folder statistics
+ */
+async function calculateFolderStats(dirPath) {
+    let size = 0;
+    let files = 0;
+    let folders = 0;
+
+    async function traverse(currentPath) {
+        try {
+            const entries = await fs.readdir(currentPath, { withFileTypes: true });
+            for (const entry of entries) {
+                const fullPath = path.join(currentPath, entry.name);
+                if (entry.isDirectory()) {
+                    folders++;
+                    await traverse(fullPath);
+                } else if (entry.isFile()) {
+                    files++;
+                    try {
+                        const stats = await fs.stat(fullPath);
+                        size += stats.size;
+                    } catch { }
+                }
+            }
+        } catch {
+            // Ignore inaccessible folders
+        }
+    }
+
+    await traverse(dirPath);
+    return { size, files, folders };
+}
+
+/**
+ * Get unified content info for Properties dialog
+ */
+async function getContentInfo(itemPath) {
+    try {
+        const stats = await fs.stat(itemPath);
+        const name = path.basename(itemPath);
+        const isWindows = os.platform() === 'win32';
+
+        // Determine hidden status
+        let isHidden = false;
+        if (isWindows) {
+            isHidden = await getWindowsHiddenAttribute(itemPath);
+        } else {
+            isHidden = name.startsWith('.');
+        }
+
+        const baseInfo = {
+            name,
+            path: itemPath,
+            size: stats.size,
+            created: stats.birthtime,
+            modified: stats.mtime,
+            accessed: stats.atime,
+            isHidden,
+            readOnly: false
+        };
+
+        if (stats.isDirectory()) {
+            return {
+                ...baseInfo,
+                type: 'folder',
+                isDirectory: true
+            };
+        } else {
+            return {
+                ...baseInfo,
+                type: 'file',
+                isFile: true,
+                extension: path.extname(itemPath).toLowerCase()
+            };
+        }
+    } catch (error) {
+        // Might be a drive
+        const drives = await getDrives();
+        const drive = drives.find(d => d.path.toLowerCase() === itemPath.toLowerCase() || d.path.replace(/\\$/, '').toLowerCase() === itemPath.toLowerCase());
+
+        if (drive) {
+            return {
+                ...drive,
+                type: 'drive',
+                isDrive: true,
+                isDirectory: true
+            };
+        }
+
+        return { error: error.message };
+    }
+}
+
+async function setHiddenAttribute(itemPath, hide) {
+    const isWindows = os.platform() === 'win32';
+    if (isWindows) {
+        return await setWindowsHiddenAttribute(itemPath, hide);
+    } else {
+        // Unix style: rename with . prefix
+        const dir = path.dirname(itemPath);
+        const name = path.basename(itemPath);
+        let newName = name;
+
+        if (hide && !name.startsWith('.')) {
+            newName = '.' + name;
+        } else if (!hide && name.startsWith('.')) {
+            newName = name.substring(1);
+        }
+
+        if (newName !== name) {
+            try {
+                await fs.rename(itemPath, path.join(dir, newName));
+                return true;
+            } catch {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
 module.exports = {
     getSpecialFolders,
     getDrives,
     readDirectory,
     getFileInfo,
+    getThisPCView,
+    calculateFolderStats,
+    getContentInfo,
+    setHiddenAttribute
 };

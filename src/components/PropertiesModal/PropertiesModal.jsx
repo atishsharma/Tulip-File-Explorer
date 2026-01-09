@@ -21,44 +21,59 @@ function formatBitrate(bps) {
 
 function PropertiesModal({ isOpen, onClose, item, onRename }) {
     const [isRenaming, setIsRenaming] = useState(false);
-    const [newName, setNewName] = useState(item?.name || '');
+    const [newName, setNewName] = useState('');
     const [metadata, setMetadata] = useState(null);
+    const [contentInfo, setContentInfo] = useState(null);
+    const [folderStats, setFolderStats] = useState(null);
     const [loadingMeta, setLoadingMeta] = useState(false);
+    const [calculatingStats, setCalculatingStats] = useState(false);
 
     useEffect(() => {
         if (!isOpen || !item) return;
 
         setNewName(item.name);
         setMetadata(null);
+        setContentInfo(null);
+        setFolderStats(null);
+        setLoadingMeta(true);
 
-        async function loadMetadata() {
+        async function loadData() {
             if (!window.electronAPI) return;
 
-            const ext = (item.extension || '').toLowerCase();
-            const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico', '.svg'];
-            const videoExts = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm'];
-
-            setLoadingMeta(true);
             try {
-                if (imageExts.includes(ext)) {
-                    const result = await window.electronAPI.getImageMetadata(item.path);
-                    if (result.success) {
-                        setMetadata({ type: 'image', ...result.metadata });
-                    }
-                } else if (videoExts.includes(ext)) {
-                    const result = await window.electronAPI.getVideoMetadata(item.path);
-                    if (result.success) {
-                        setMetadata({ type: 'video', ...result.metadata });
+                // 1. Get Unified Content Info (includes exact Hidden status checked properly on backend)
+                const info = await window.electronAPI.getContentInfo(item.path);
+                setContentInfo(info);
+
+                // 2. Load Item Specifics
+                if (item.isDirectory && !item.isDrive) {
+                    setCalculatingStats(true); // Don't block UI
+                    window.electronAPI.calculateFolderStats(item.path).then(stats => {
+                        setFolderStats(stats);
+                        setCalculatingStats(false);
+                    });
+                } else if (item.isFile) {
+                    // Load Media Metadata
+                    const ext = (item.extension || '').toLowerCase();
+                    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico', '.svg'];
+                    const videoExts = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm'];
+
+                    if (imageExts.includes(ext)) {
+                        const result = await window.electronAPI.getImageMetadata(item.path);
+                        if (result.success) setMetadata({ type: 'image', ...result.metadata });
+                    } else if (videoExts.includes(ext)) {
+                        const result = await window.electronAPI.getVideoMetadata(item.path);
+                        if (result.success) setMetadata({ type: 'video', ...result.metadata });
                     }
                 }
             } catch (err) {
-                console.error('Error loading metadata:', err);
+                console.error('Error loading properties:', err);
             } finally {
                 setLoadingMeta(false);
             }
         }
 
-        loadMetadata();
+        loadData();
     }, [isOpen, item]);
 
     if (!isOpen || !item) return null;
@@ -70,12 +85,17 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
         }
     };
 
-    const handleHide = async () => {
-        const hiddenName = item.name.startsWith('.')
-            ? item.name.slice(1)
-            : '.' + item.name;
-        await onRename?.(item, hiddenName);
-        onClose();
+    const handleHideChange = async (e) => {
+        const hide = e.target.checked;
+        if (window.electronAPI) {
+            const success = await window.electronAPI.setHiddenAttribute(item.path, hide);
+            if (success) {
+                // Update local state to reflect change immediately
+                setContentInfo(prev => ({ ...prev, isHidden: hide }));
+                // Might need to refresh explorer view to see changes...
+                // Ideally we'd trigger a refresh callback here if provided
+            }
+        }
     };
 
     const handleKeyDown = (e) => {
@@ -85,6 +105,31 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
             setIsRenaming(false);
             setNewName(item.name);
         }
+    };
+
+    // Drive Capacity Bar
+    const renderDriveUsage = () => {
+        if (!item.isDrive) return null;
+        const used = item.used || 0;
+        const total = item.size || 1;
+        const percent = Math.min(100, Math.max(0, (used / total) * 100));
+        const variant = percent > 90 ? 'danger' : 'primary';
+
+        return (
+            <div className="properties-drive-usage">
+                <div className="usage-labels">
+                    <span>Used: {formatFileSize(used)}</span>
+                    <span>Free: {formatFileSize(item.free || 0)}</span>
+                </div>
+                <div className="usage-track">
+                    <div
+                        className={`usage-fill ${variant}`}
+                        style={{ width: `${percent}%` }}
+                    />
+                </div>
+                <div className="usage-total">Capacity: {formatFileSize(total)}</div>
+            </div>
+        );
     };
 
     return (
@@ -104,7 +149,7 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                         )}
                     </div>
                     <div className="properties-title-section">
-                        {isRenaming ? (
+                        {isRenaming && !item.isDrive && !item.isSpecialFolder ? (
                             <input
                                 type="text"
                                 value={newName}
@@ -119,7 +164,7 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                                 {item.name}
                             </h2>
                         )}
-                        <span className="properties-type">{getFileType(item)}</span>
+                        <span className="properties-type">{item.isDrive ? 'Local Disk' : getFileType(item)}</span>
                     </div>
                     <button className="properties-close" onClick={onClose}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -135,75 +180,66 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                         <div className="properties-grid">
                             <div className="properties-row">
                                 <span className="properties-label">Type</span>
-                                <span className="properties-value">{getFileType(item)}</span>
+                                <span className="properties-value">{item.isDrive ? 'Local Disk' : getFileType(item)}</span>
                             </div>
-                            {!item.isDirectory && (
-                                <div className="properties-row">
-                                    <span className="properties-label">Size</span>
-                                    <span className="properties-value">{formatFileSize(item.size)}</span>
-                                </div>
-                            )}
+
                             <div className="properties-row">
                                 <span className="properties-label">Location</span>
                                 <span className="properties-value properties-path" title={item.path}>
                                     {item.path}
                                 </span>
                             </div>
+
+                            {!item.isDirectory && !item.isDrive && (
+                                <div className="properties-row">
+                                    <span className="properties-label">Size</span>
+                                    <span className="properties-value">{formatFileSize(item.size)}</span>
+                                </div>
+                            )}
+
+                            {/* Folder Stats */}
+                            {item.isDirectory && !item.isDrive && (
+                                <>
+                                    <div className="properties-row">
+                                        <span className="properties-label">Size</span>
+                                        <span className="properties-value">
+                                            {folderStats ? formatFileSize(folderStats.size) : (calculatingStats ? 'Calculating...' : formatFileSize(item.size || 0))}
+                                        </span>
+                                    </div>
+                                    <div className="properties-row">
+                                        <span className="properties-label">Contains</span>
+                                        <span className="properties-value">
+                                            {folderStats ? `${folderStats.files} Files, ${folderStats.folders} Folders` : (calculatingStats ? '...' : '-')}
+                                        </span>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </section>
 
-                    {/* Image Metadata */}
-                    {metadata?.type === 'image' && (
+                    {/* Drive Usage */}
+                    {item.isDrive && (
                         <section className="properties-section">
-                            <h3 className="properties-section-title">Image Details</h3>
-                            <div className="properties-grid">
-                                {metadata.width && metadata.height && (
-                                    <>
-                                        <div className="properties-row">
-                                            <span className="properties-label">Dimensions</span>
-                                            <span className="properties-value">{metadata.width} × {metadata.height} px</span>
-                                        </div>
-                                        <div className="properties-row">
-                                            <span className="properties-label">Megapixels</span>
-                                            <span className="properties-value">{metadata.megapixels} MP</span>
-                                        </div>
-                                        <div className="properties-row">
-                                            <span className="properties-label">Aspect Ratio</span>
-                                            <span className="properties-value">{metadata.aspectRatio}</span>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                            <h3 className="properties-section-title">Drive Usage</h3>
+                            {renderDriveUsage()}
                         </section>
                     )}
 
-                    {/* Video Metadata */}
-                    {metadata?.type === 'video' && (
+                    {/* Media Metadata */}
+                    {metadata && (
                         <section className="properties-section">
-                            <h3 className="properties-section-title">Video Details</h3>
+                            <h3 className="properties-section-title">Media Details</h3>
                             <div className="properties-grid">
+                                {metadata.width && (
+                                    <div className="properties-row">
+                                        <span className="properties-label">Dimensions</span>
+                                        <span className="properties-value">{metadata.width} x {metadata.height}</span>
+                                    </div>
+                                )}
                                 {metadata.duration && (
                                     <div className="properties-row">
                                         <span className="properties-label">Duration</span>
                                         <span className="properties-value">{formatDuration(metadata.duration)}</span>
-                                    </div>
-                                )}
-                                {metadata.width && metadata.height && (
-                                    <div className="properties-row">
-                                        <span className="properties-label">Resolution</span>
-                                        <span className="properties-value">{metadata.width} × {metadata.height}</span>
-                                    </div>
-                                )}
-                                {metadata.codec && (
-                                    <div className="properties-row">
-                                        <span className="properties-label">Video Codec</span>
-                                        <span className="properties-value">{metadata.codec.toUpperCase()}</span>
-                                    </div>
-                                )}
-                                {metadata.fps && (
-                                    <div className="properties-row">
-                                        <span className="properties-label">Frame Rate</span>
-                                        <span className="properties-value">{Math.round(metadata.fps)} fps</span>
                                     </div>
                                 )}
                                 {metadata.bitrate && (
@@ -212,66 +248,59 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                                         <span className="properties-value">{formatBitrate(metadata.bitrate)}</span>
                                     </div>
                                 )}
-                                {metadata.audioCodec && (
-                                    <div className="properties-row">
-                                        <span className="properties-label">Audio Codec</span>
-                                        <span className="properties-value">{metadata.audioCodec.toUpperCase()}</span>
-                                    </div>
-                                )}
-                                {metadata.formatName && (
-                                    <div className="properties-row">
-                                        <span className="properties-label">Format</span>
-                                        <span className="properties-value">{metadata.formatName}</span>
-                                    </div>
-                                )}
                             </div>
                         </section>
                     )}
 
-                    {/* Dates */}
+                    {/* Dates & Attributes */}
                     <section className="properties-section">
-                        <h3 className="properties-section-title">Dates</h3>
+                        <h3 className="properties-section-title">Attributes</h3>
                         <div className="properties-grid">
                             <div className="properties-row">
                                 <span className="properties-label">Created</span>
-                                <span className="properties-value">{formatDate(item.created)}</span>
+                                <span className="properties-value">{formatDate(contentInfo?.created || item.created)}</span>
                             </div>
                             <div className="properties-row">
                                 <span className="properties-label">Modified</span>
-                                <span className="properties-value">{formatDate(item.modified)}</span>
+                                <span className="properties-value">{formatDate(contentInfo?.modified || item.modified)}</span>
                             </div>
                         </div>
-                    </section>
 
-                    {/* Attributes */}
-                    <section className="properties-section">
-                        <h3 className="properties-section-title">Attributes</h3>
-                        <div className="properties-attributes">
-                            <label className="attribute-item">
-                                <input
-                                    type="checkbox"
-                                    checked={item.isHidden || item.name.startsWith('.')}
-                                    onChange={handleHide}
-                                />
-                                <span>Hidden</span>
-                            </label>
-                        </div>
+                        {!item.isDrive && (
+                            <div className="properties-attributes">
+                                <label className="attribute-item">
+                                    <input
+                                        type="checkbox"
+                                        checked={contentInfo ? contentInfo.isHidden : (item.isHidden || item.name.startsWith('.'))}
+                                        onChange={handleHideChange}
+                                        disabled={!window.electronAPI}
+                                    />
+                                    <span>Hidden</span>
+                                </label>
+                                <label className="attribute-item">
+                                    <input type="checkbox" checked={contentInfo?.readOnly} disabled />
+                                    <span>Read-only</span>
+                                </label>
+                            </div>
+                        )}
                     </section>
                 </div>
 
                 <footer className="properties-footer">
-                    <button
-                        className="properties-btn outlined"
-                        onClick={() => {
-                            setIsRenaming(true);
-                            setNewName(item.name);
-                        }}
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                        </svg>
-                        Rename
-                    </button>
+                    {!item.isDrive && !item.isSpecialFolder && (
+                        <button
+                            className="properties-btn outlined"
+                            onClick={() => {
+                                setIsRenaming(true);
+                                setNewName(item.name);
+                            }}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                            </svg>
+                            Rename
+                        </button>
+                    )}
                     <button className="properties-btn primary" onClick={onClose}>
                         OK
                     </button>

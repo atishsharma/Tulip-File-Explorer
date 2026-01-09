@@ -60,6 +60,14 @@ function App() {
     localStorage.setItem('tulip-color', primaryColor);
   }, [primaryColor]);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Clear search on navigation
+  useEffect(() => {
+    setSearchQuery('');
+  }, [currentPath]);
+
   // Save preview panel state
   useEffect(() => {
     localStorage.setItem('tulip-show-preview', JSON.stringify(showPreview));
@@ -142,6 +150,9 @@ function App() {
         <FileExplorer
           currentPath={currentPath}
           items={items}
+          searchQuery={searchQuery}
+          onSearch={setSearchQuery}
+          specialFolders={specialFolders}
           loading={loading}
           error={error}
           onNavigate={navigateTo}

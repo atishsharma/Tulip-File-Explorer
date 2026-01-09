@@ -1,0 +1,295 @@
+/* =========================================
+   This PC - Styles
+   ========================================= */
+
+.this-pc-container {
+    padding: 3px;
+    /* Reduced to 3px */
+    overflow-y: auto;
+    height: 100%;
+}
+
+.pc-section {
+    margin-bottom: 10px;
+}
+
+.thispc-header {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    opacity: 0.9;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.pc-section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    padding-left: 5px;
+    opacity: 0.8;
+}
+
+/* Grids - Grid View */
+.libraries-grid,
+.drives-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+}
+
+/* Glass Card Base */
+.glass-card {
+    background: var(--bg-surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.01) 100%);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.glass-card:hover {
+    transform: translateY(-4px);
+    background: var(--bg-surface-hover);
+    border-color: var(--primary-container);
+    box-shadow: var(--shadow-md);
+}
+
+/* Selected State */
+.glass-card.selected {
+    background: var(--primary-light-bg);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-container);
+}
+
+.glass-card:hover::before {
+    opacity: 1;
+}
+
+.glass-card:active {
+    transform: scale(0.98);
+    background: var(--bg-surface-active);
+}
+
+/* Icons */
+.library-icon,
+.drive-icon {
+    display: flex;
+    /* Ensure SVG centers */
+    justify-content: center;
+    align-items: center;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 12px;
+    color: var(--primary);
+    /* Primary Color for Icons */
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+    z-index: 1;
+}
+
+.libraries-grid .library-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 52px;
+    /* 20% smaller than 64px */
+    height: 52px;
+    padding: 10px;
+    margin-bottom: 12px;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    border-radius: 50%;
+    transition: all var(--transition-normal);
+    z-index: 1;
+    background: transparent;
+}
+
+.libraries-grid .glass-card:hover .library-icon {
+    background: var(--primary);
+    color: var(--text-on-primary);
+    box-shadow: 0 4px 12px var(--primary-container);
+}
+
+.library-icon svg,
+.drive-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.cloud-icon {
+    width: 72px;
+    height: 72px;
+}
+
+/* Text */
+.library-name,
+.drive-name {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    text-align: center;
+    margin-bottom: 4px;
+    z-index: 1;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.drive-label,
+.drive-provider {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    text-align: center;
+    z-index: 1;
+}
+
+/* Progress Bar */
+.drive-status {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    z-index: 1;
+}
+
+.drive-bar-track {
+    width: 100%;
+    background: var(--border-strong);
+    height: 6px;
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    position: relative;
+}
+
+.drive-bar-fill {
+    height: 100%;
+    border-radius: var(--radius-full);
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: var(--primary);
+    /* Default primary */
+}
+
+.drive-text {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+}
+
+/* List View Styles */
+.thispc-list-view .drives-grid,
+.thispc-list-view .libraries-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.thispc-list-view .glass-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 12px 16px;
+    height: auto;
+    min-height: 64px;
+    gap: 16px;
+}
+
+.thispc-list-view .glass-card:hover {
+    transform: none;
+    /* No lift in list view */
+    background: var(--bg-surface-hover);
+}
+
+.thispc-list-view .drive-icon-wrapper {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.thispc-list-view .library-icon {
+    width: 36px;
+    /* Smaller in list view */
+    height: 36px;
+    padding: 6px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+    border-width: 1.5px;
+    /* Thinner border for small size */
+}
+
+.thispc-list-view .pc-section-title {
+    margin-bottom: 12px;
+    /* Tighter header */
+}
+
+.thispc-list-view .drive-info-center {
+    flex: 1;
+    /* Take remaining space */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    min-width: 0;
+}
+
+.thispc-list-view .drive-name,
+.thispc-list-view .library-name {
+    text-align: left;
+    margin-bottom: 2px;
+    margin-left: 8px;
+    /* Added padding/margin */
+    font-size: var(--font-size-md);
+}
+
+.thispc-list-view .drive-label {
+    text-align: left;
+    margin-bottom: 0;
+    margin-left: 8px;
+    /* Added padding/margin */
+}
+
+.thispc-list-view .drive-status {
+    width: 200px;
+    /* Fixed width for status in list view */
+    align-items: flex-end;
+    margin-left: auto;
+    /* Push to right */
+}
+
+.thispc-list-view .drive-bar-track {
+    margin-top: 4px;
+}
+
+/* Loading/Fade */
+.fade-in {
+    animation: fadeIn var(--transition-normal);
+}

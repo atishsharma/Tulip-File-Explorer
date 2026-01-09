@@ -21,6 +21,8 @@ const ICONS = {
     // Quick Access
     home: "M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z",
     desktop: "M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z",
+    computer: "M20 18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z",
+
 
     // Libraries
     documents: "M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z",
@@ -168,6 +170,7 @@ export const folderIcons = {
     pictures: <Icon path={ICONS.pictures} />,
     videos: <Icon path={ICONS.videos} />,
     music: <Icon path={ICONS.music} />,
+    computer: <Icon path={ICONS.computer} />,
 };
 
 // Drive icons

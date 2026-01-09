@@ -1,10 +1,21 @@
+import { useState, useEffect } from 'react';
 import { getFolderIcon, getDriveIcon } from '../../utils/fileIcons';
 import { formatDriveCapacity, getDriveUsagePercent } from '../../utils/formatters';
 import { getRcloneProviderInfo, capitalizeFirst } from '../../utils/rcloneProviders';
 import './Sidebar.css';
 
 function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavigate, onShowContextMenu, onAddCloudDrive, onRefresh }) {
+    const [platform, setPlatform] = useState(null);
 
+    useEffect(() => {
+        async function getPlatform() {
+            if (window.electronAPI) {
+                const plat = await window.electronAPI.getPlatform();
+                setPlatform(plat);
+            }
+        }
+        getPlatform();
+    }, []);
     const handleDriveContextMenu = async (e, drive) => {
         e.preventDefault();
         if (onShowContextMenu) {
@@ -43,6 +54,18 @@ function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavi
             <section className="sidebar-section">
                 <h3 className="sidebar-heading">Quick Access</h3>
                 <nav className="sidebar-nav">
+                    {/* This PC / This Mac / Computer - All platforms */}
+                    {platform && (
+                        <button
+                            className={`sidebar-item ${currentPath === 'thispc://' ? 'active' : ''}`}
+                            onClick={() => onNavigate('thispc://')}
+                        >
+                            <span className="sidebar-icon">💻</span>
+                            <span className="sidebar-label">
+                                {platform === 'win32' ? 'This PC' : platform === 'darwin' ? 'This Mac' : 'Computer'}
+                            </span>
+                        </button>
+                    )}
                     {specialFolders.slice(0, 2).map((folder) => (
                         <button
                             key={folder.id}
