@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo1.png';
 import './SettingsModal.css';
 
 const COLOR_PRESETS = [
@@ -29,90 +29,95 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                 </header>
 
                 <div className="settings-content">
-                    {/* Theme Section */}
-                    <section className="settings-section">
-                        <h3 className="settings-section-title">Appearance</h3>
-                        <div className="theme-toggle-group">
-                            <button
-                                className={`theme-option ${theme === 'light' ? 'active' : ''}`}
-                                onClick={() => onThemeChange('light')}
-                            >
-                                <span className="theme-icon">☀️</span>
-                                <span className="theme-label">Light</span>
-                            </button>
-                            <button
-                                className={`theme-option ${theme === 'dark' ? 'active' : ''}`}
-                                onClick={() => onThemeChange('dark')}
-                            >
-                                <span className="theme-icon">🌙</span>
-                                <span className="theme-label">Dark</span>
-                            </button>
-                        </div>
-                    </section>
-
-                    {/* Color Section */}
-                    <section className="settings-section">
-                        <h3 className="settings-section-title">Accent Color</h3>
-                        <p className="settings-section-desc">
-                            Choose a primary color to personalize your experience
-                        </p>
-                        <div className="color-grid">
-                            {COLOR_PRESETS.map((color) => (
+                    {/* Left Column - Settings */}
+                    <div className="settings-column settings-left">
+                        {/* Theme Section */}
+                        <section className="settings-section">
+                            <h3 className="settings-section-title">Appearance</h3>
+                            <div className="theme-toggle-group">
                                 <button
-                                    key={color.id}
-                                    className={`color-option ${currentColor === color.id ? 'active' : ''}`}
-                                    onClick={() => onColorChange(color.id)}
-                                    title={color.name}
+                                    className={`theme-option ${theme === 'light' ? 'active' : ''}`}
+                                    onClick={() => onThemeChange('light')}
                                 >
-                                    <span
-                                        className="color-swatch"
-                                        style={{ backgroundColor: color.preview }}
-                                    />
-                                    <span className="color-name">{color.name}</span>
-                                    {currentColor === color.id && (
-                                        <span className="color-check">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                                <path d="M20 6L9 17l-5-5" />
-                                            </svg>
-                                        </span>
-                                    )}
+                                    <span className="theme-icon">☀️</span>
+                                    <span className="theme-label">Light</span>
                                 </button>
-                            ))}
-                        </div>
-                    </section>
+                                <button
+                                    className={`theme-option ${theme === 'dark' ? 'active' : ''}`}
+                                    onClick={() => onThemeChange('dark')}
+                                >
+                                    <span className="theme-icon">🌙</span>
+                                    <span className="theme-label">Dark</span>
+                                </button>
+                            </div>
+                        </section>
 
-                    {/* About Section */}
-                    <section className="settings-section">
-                        <h3 className="settings-section-title">About</h3>
-                        <div className="about-header">
-                            <img src={logo} alt="Tulip" className="about-logo" />
-                            <div className="about-app-info">
-                                <span className="about-app-name">Tulip File Explorer</span>
-                                <span className="about-version">Version 1.4.3-1</span>
+                        {/* Color Section */}
+                        <section className="settings-section">
+                            <h3 className="settings-section-title">Accent Color</h3>
+                            <p className="settings-section-desc">
+                                Choose a primary color to personalize your experience
+                            </p>
+                            <div className="color-grid">
+                                {COLOR_PRESETS.map((color) => (
+                                    <button
+                                        key={color.id}
+                                        className={`color-option ${currentColor === color.id ? 'active' : ''}`}
+                                        onClick={() => onColorChange(color.id)}
+                                        title={color.name}
+                                    >
+                                        <span
+                                            className="color-swatch"
+                                            style={{ backgroundColor: color.preview }}
+                                        />
+                                        <span className="color-name">{color.name}</span>
+                                        {currentColor === color.id && (
+                                            <span className="color-check">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                                    <path d="M20 6L9 17l-5-5" />
+                                                </svg>
+                                            </span>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
-                        </div>
-                        <div className="about-info">
-                            <div className="about-row">
-                                <span className="about-label">Built with</span>
-                                <span className="about-value">Electron + React</span>
+                        </section>
+                    </div>
+
+                    {/* Right Column - About */}
+                    <div className="settings-column settings-right">
+                        <section className="settings-section about-section">
+                            <h3 className="settings-section-title">About</h3>
+                            <div className="about-header">
+                                <img src={logo} alt="Tulip" className="about-logo" />
+                                <div className="about-app-info">
+                                    <span className="about-app-name">Tulip File Explorer</span>
+                                    <span className="about-version">Version 1.4.3-1</span>
+                                </div>
                             </div>
-                            <div className="about-row">
-                                <span className="about-label">License</span>
-                                <span className="about-value">MIT</span>
+                            <div className="about-info">
+                                <div className="about-row">
+                                    <span className="about-label">Built with</span>
+                                    <span className="about-value">Electron + React</span>
+                                </div>
+                                <div className="about-row">
+                                    <span className="about-label">License</span>
+                                    <span className="about-value">MIT</span>
+                                </div>
+                                <div className="about-row">
+                                    <span className="about-label">Designed By</span>
+                                    <span className="about-value">Atish Ak Sharma</span>
+                                </div>
                             </div>
-                            <div className="about-row">
-                                <span className="about-label">Designed By</span>
-                                <span className="about-value">Atish Ak Sharma</span>
-                            </div>
-                        </div>
-                        <button
-                            className="update-btn"
-                            onClick={() => window.electronAPI.openExternal('https://github.com/atishsharma/Tulip-File-Explorer/releases')}
-                        >
-                            <span className="update-icon">📥</span>
-                            <span>Check for Updates</span>
-                        </button>
-                    </section>
+                            <button
+                                className="update-btn"
+                                onClick={() => window.electronAPI?.openExternal('https://github.com/atishsharma/Tulip-File-Explorer/releases')}
+                            >
+                                <span className="update-icon">📥</span>
+                                <span>Check for Updates</span>
+                            </button>
+                        </section>
+                    </div>
                 </div>
             </div>
         </div>

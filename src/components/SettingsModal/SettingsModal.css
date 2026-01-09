@@ -15,12 +15,13 @@
 }
 
 .settings-modal {
-    width: 420px;
-    max-width: 90vw;
+    max-width: 800px;
+    width: calc(100% - 80px);
     max-height: 85vh;
+    background: var(--background-primary);
+    border-radius: 16px;
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .settings-header {
@@ -54,9 +55,23 @@
 }
 
 .settings-content {
-    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    max-height: calc(85vh - 70px);
+}
+
+.settings-column {
+    padding: 24px;
     overflow-y: auto;
-    padding: var(--space-lg);
+}
+
+.settings-left {
+    border-right: 1px solid var(--border);
+}
+
+.settings-right {
+    background: var(--bg-surface);
 }
 
 .settings-section {

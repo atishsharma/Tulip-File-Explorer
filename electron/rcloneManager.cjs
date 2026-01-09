@@ -60,63 +60,98 @@ class RcloneManager {
             return { success: true, path: this.mounts.get(remoteName).mountPath, alreadyMounted: true };
         }
 
-        const mountPath = path.join(this.baseMountDir, remoteName);
-
-        // Create mount point directory if doesn't exist
-        try {
-            await fs.mkdir(mountPath, { recursive: true });
-        } catch (err) {
-            // Ignore if exists
-        }
-
-        // Check if directory is empty (safety check)
-        const files = await fs.readdir(mountPath);
-        if (files.length > 0) {
-            // Check if it's already a mount point using 'mount' command or simple heuristic
-            // For simplicity, we'll assume if it has files, we might fail or it might be a stale mount
-            // Just try to mount over it or error? Let's try to unmount first just in case
-            try {
-                await this.unmountRemote(remoteName);
-            } catch (e) { }
-        }
-
         const platform = os.platform();
+        let mountPath;
         let command;
 
         if (platform === 'win32') {
-            // Windows requires WinFsp and mount command is slightly different usually
-            // rclone mount remote: X: --vfs-cache-mode writes
-            // For now, let's try mounting to a directory which rclone supports on Windows too if configured right
-            command = `rclone mount "${remoteName}:" "${mountPath}" --vfs-cache-mode writes`;
+            // Windows: Find first available drive letter backwards from Z
+            const usedDrives = await this.getUsedDriveLetters();
+            const available = 'ZYXWVUTSRQPONMLKJIHGFEDCBA'.split('').find(l => !usedDrives.has(l));
+
+            if (!available) {
+                throw new Error('No free drive letters available for mounting.');
+            }
+
+            mountPath = `${available}:`;
+            // Use --no-console to hide terminal window, mount to drive letter
+            // Add --volname to set the drive label in Windows Explorer
+            command = `rclone mount "${remoteName}:" ${mountPath} --vfs-cache-mode full --no-console --volname "${remoteName}"`;
         } else {
-            // Linux/Mac
-            command = `rclone mount "${remoteName}:" "${mountPath}" --vfs-cache-mode writes --daemon`;
-            // --daemon makes it run in background and exit. But we want to track the process?
-            // If we use --daemon, we lose track of the PID easily. 
-            // Better to run without --daemon and let Electron manage the child process.
+            // Linux/Mac: Mount to directory
+            mountPath = path.join(this.baseMountDir, remoteName);
+
+            try {
+                await fs.mkdir(mountPath, { recursive: true });
+            } catch (err) { }
+
+            // Check if directory is empty/mounted
+            try {
+                const files = await fs.readdir(mountPath);
+                if (files.length > 0) {
+                    try { await this.unmountRemote(remoteName); } catch (e) { }
+                }
+            } catch (e) { }
+
             command = `rclone mount "${remoteName}:" "${mountPath}" --vfs-cache-mode writes`;
         }
 
         return new Promise((resolve, reject) => {
+            console.log(`Executing Rclone: ${command}`);
+            // Use spawn for better process control on Windows
+            const { spawn } = require('child_process');
+
+            // Parse command string to args for spawn (basic splitting, ideally use a parser)
+            // But simple split works for these specific known commands
+            // Or just use exec if we don't need detailed stream control yet.
+            // Actually, exec is easier for simple start, but spawn is better for long running.
+            // Let's stick to exec for simplicity as per existing code structure, 
+            // but ensure we don't await completion (it blocks).
+
             const childProcess = exec(command, (error) => {
-                // This callback runs when process terminates (unexpectedly or expectedly)
+                // This callback runs when process terminates
                 if (this.mounts.has(remoteName)) {
-                    console.error(`Rclone mount ${remoteName} terminated unexpectly:`, error);
+                    console.error(`Rclone mount ${remoteName} terminated unexpectedly:`, error);
                     this.mounts.delete(remoteName);
                 }
             });
 
-            // Wait a bit to verify mount success (rclone doesn't exit immediately on success without --daemon)
-            // Simple heuristic: wait 2 seconds, check if process is still running and mountPath is accessible
-            setTimeout(() => {
-                if (childProcess.exitCode === null) {
+            // Wait verification
+            setTimeout(async () => {
+                const isRunning = childProcess.exitCode === null;
+                if (isRunning) {
+                    // Verify mount path exists/accessible using fs
+                    try {
+                        if (platform === 'win32') {
+                            // Accessing Z:\ might be slow/block if mount failing?
+                            // Just assume success if process running for now, as check might freeze
+                        }
+                    } catch (e) { }
+
                     this.mounts.set(remoteName, { process: childProcess, mountPath, type: remoteType });
                     resolve({ success: true, path: mountPath });
                 } else {
-                    reject(new Error('Rclone process exited immediately. Check config or logs.'));
+                    reject(new Error(`Rclone exited immediately. Check if WinFSP is installed.`));
                 }
-            }, 2000);
+            }, 3000);
         });
+    }
+
+    // Helper to find used drive letters on Windows using FS check (No WMIC)
+    async getUsedDriveLetters() {
+        const used = new Set();
+        // Check A-Z
+        for (let i = 65; i <= 90; i++) {
+            const letter = String.fromCharCode(i);
+            const drivePath = `${letter}:\\`;
+            try {
+                await fs.access(drivePath);
+                used.add(letter);
+            } catch (e) {
+                // Drive not accessible/free
+            }
+        }
+        return used;
     }
 
     async unmountRemote(remoteName) {

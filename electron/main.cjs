@@ -166,11 +166,74 @@ ipcMain.handle('fs:get-special-folders', () => {
 });
 
 ipcMain.handle('fs:get-drives', async () => {
-    return await fileSystem.getDrives();
+    const drives = await fileSystem.getDrives();
+    // Enrich with Rclone mount info
+    const mounted = await rcloneManager.getMounted();
+    const mountedMap = new Map(mounted.map(m => [m.path.toUpperCase(), m.name]));
+
+    return drives.map(drive => {
+        // Normalize path for comparison (Windows drives usually end with \)
+        // rcloneManager mountPath on Windows is "Z:" usually, needs normalize
+        // But let's handle "Z:" matching "Z:\"
+        const driveKey = drive.path.replace(/\\$/, '').toUpperCase();
+        const driveKeyWithColon = driveKey.includes(':') ? driveKey : `${driveKey}:`;
+
+        // Check if this drive corresponds to a mount
+        // mountPath in rcloneManager is exactly "Z:" on Windows
+        // fileSystem returns "Z:\"
+
+        let remoteName = mountedMap.get(driveKeyWithColon);
+        if (remoteName) {
+            // User requested: "remove location part of the name from mounted drive"
+            // e.g. "oneprivate" instead of "oneprivate (Z:\)"
+            return { ...drive, name: remoteName };
+        }
+        return drive;
+    });
 });
 
 ipcMain.handle('fs:read-directory', async (event, dirPath) => {
     return await fileSystem.readDirectory(dirPath);
+});
+
+// Get initial path based on platform
+ipcMain.handle('fs:get-initial-path', () => {
+    const platform = os.platform();
+    if (platform === 'win32') {
+        return 'thispc://'; // Special path for Windows "This PC" view
+    }
+    return app.getPath('home'); // Default to home for Linux/Mac
+});
+
+// Get This PC view (Windows only)
+ipcMain.handle('fs:get-thispc-view', async () => {
+    const result = await fileSystem.getThisPCView(app);
+    if (!result.success) return result;
+
+    // Enrich drives in "This PC" view with Rclone names
+    const mounted = await rcloneManager.getMounted();
+    const mountedMap = new Map(mounted.map(m => [m.path.toUpperCase(), m.name]));
+
+    result.items = result.items.map(item => {
+        if (item.isDrive) {
+            const driveKey = item.path.replace(/\\$/, '').toUpperCase();
+            const driveKeyWithColon = driveKey.includes(':') ? driveKey : `${driveKey}:`;
+
+            let remoteName = mountedMap.get(driveKeyWithColon);
+            if (remoteName) {
+                // User requested: "remove location part of the name from mounted drive"
+                // e.g. "oneprivate" instead of "oneprivate (Z:\)"
+                return { ...item, name: remoteName };
+            }
+        }
+        return item;
+    });
+    return result;
+});
+
+// Get platform
+ipcMain.handle('get-platform', () => {
+    return os.platform();
 });
 
 ipcMain.handle('fs:open-file', async (event, filePath) => {
@@ -181,22 +244,32 @@ ipcMain.handle('fs:get-file-info', async (event, filePath) => {
     return await fileSystem.getFileInfo(filePath);
 });
 
-// Thumbnail generation with caching
+// Enhanced Properties IPC
+ipcMain.handle('fs:get-content-info', async (event, filePath) => {
+    return await fileSystem.getContentInfo(filePath);
+});
+
+ipcMain.handle('fs:calculate-folder-stats', async (event, dirPath) => {
+    return await fileSystem.calculateFolderStats(dirPath);
+});
+
+ipcMain.handle('fs:set-hidden-attribute', async (event, filePath, hide) => {
+    return await fileSystem.setHiddenAttribute(filePath, hide);
+});
+
+// Optimized thumbnail generation with efficient cross-platform caching
 ipcMain.handle('fs:get-thumbnail', async (event, filePath, size = 128) => {
     try {
         await ensureThumbnailCacheDir();
 
         const stats = await fs.stat(filePath);
         const mtime = stats.mtimeMs.toString();
-        const ext = path.extname(filePath).toLowerCase();
-        const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico'];
+        // Include size in cache key to allow different thumbnail sizes
+        const cacheKey = `${filePath}-${mtime}-${size}`;
+        const cacheHash = crypto.createHash('md5').update(cacheKey).digest('hex');
+        const cachePath = path.join(THUMBNAIL_CACHE_DIR, `${cacheHash}.jpg`);
 
-        if (!imageExts.includes(ext)) {
-            return { success: false };
-        }
-
-        // Check if cached thumbnail exists
-        const cachePath = getCachePath(filePath, mtime);
+        // 1. Check Cache
         try {
             const cachedData = await fs.readFile(cachePath);
             return {
@@ -206,34 +279,36 @@ ipcMain.handle('fs:get-thumbnail', async (event, filePath, size = 128) => {
                 cached: true
             };
         } catch {
-            // Cache miss, generate new thumbnail
+            // Cache miss
         }
 
-        // Read original image
-        const data = await fs.readFile(filePath);
-        const base64 = data.toString('base64');
-        const mimeType = ext === '.png' ? 'image/png' :
-            ext === '.gif' ? 'image/gif' :
-                ext === '.webp' ? 'image/webp' :
-                    ext === '.bmp' ? 'image/bmp' :
-                        ext === '.ico' ? 'image/x-icon' : 'image/jpeg';
+        // 2. Generate Thumbnail using nativeImage
+        const image = nativeImage.createFromPath(filePath);
 
-        // Try to cache the thumbnail (for small files, just use original)
-        if (stats.size < 500000) { // Less than 500KB, use original
-            try {
-                await fs.writeFile(cachePath, data);
-            } catch {
-                // Cache write failed, continue anyway
-            }
+        if (image.isEmpty()) {
+            return { success: false, error: 'Failed to load image' };
+        }
+
+        const resized = image.resize({ height: size, quality: 'medium' });
+        const buffer = resized.toJPEG(80); // Convert to JPEG with 80% quality
+        const dataUrl = resized.toDataURL(); // Get data URL directly? or use buffer.
+
+        // 3. Save to Cache (Resized version)
+        try {
+            await fs.writeFile(cachePath, buffer);
+        } catch (e) {
+            console.error('Failed to write thumbnail cache:', e);
         }
 
         return {
             success: true,
-            data: `data:${mimeType};base64,${base64}`,
+            data: dataUrl,
             type: 'image',
             cached: false
         };
+
     } catch (error) {
+        console.error('Thumbnail error:', error);
         return { success: false, error: error.message };
     }
 });

@@ -2,7 +2,7 @@
 
 ### Designed with ❤️ by **Atish Ak Sharma**.
 
-<img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo.png" style="max-width:100%; width:170px;" /> 
+<img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo1.png" style="max-width:100%; width:170px;" /> 
 
 A modern, fast, and beautiful file explorer built with **React**, **Electron**, and **Vite**.
 
@@ -68,7 +68,7 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 
 ### Building for Production
 
-To create a distributable (exe/dmg/AppImage):
+To create a distributable (exe/dmg/deb):
 
 ```bash
 npm run dist

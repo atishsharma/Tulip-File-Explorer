@@ -11,9 +11,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getHomePath: () => ipcRenderer.invoke('fs:get-home-path'),
     getSpecialFolders: () => ipcRenderer.invoke('fs:get-special-folders'),
     getDrives: () => ipcRenderer.invoke('fs:get-drives'),
+    getInitialPath: () => ipcRenderer.invoke('fs:get-initial-path'),
+    getThisPCView: () => ipcRenderer.invoke('fs:get-thispc-view'),
+    getPlatform: () => ipcRenderer.invoke('get-platform'),
     readDirectory: (path) => ipcRenderer.invoke('fs:read-directory', path),
     openFile: (path) => ipcRenderer.invoke('fs:open-file', path),
     getFileInfo: (path) => ipcRenderer.invoke('fs:get-file-info', path),
+    getContentInfo: (path) => ipcRenderer.invoke('fs:get-content-info', path),
+    calculateFolderStats: (path) => ipcRenderer.invoke('fs:calculate-folder-stats', path),
+    setHiddenAttribute: (path, hide) => ipcRenderer.invoke('fs:set-hidden-attribute', path, hide),
 
     // Thumbnails and previews
     getThumbnail: (path, size) => ipcRenderer.invoke('fs:get-thumbnail', path, size),

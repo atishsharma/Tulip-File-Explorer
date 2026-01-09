@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import Breadcrumb from '../Breadcrumb/Breadcrumb';
 import FileItem from '../FileItem/FileItem';
+import ThisPC from '../ThisPC/ThisPC';
 import './FileExplorer.css';
 
 const SORT_OPTIONS = [
@@ -43,6 +44,9 @@ function FileExplorer({
     onOpenWith,
     onPaste,
     onDeleteItems,
+    specialFolders = [],
+    searchQuery = '',
+    onSearch,
 }) {
     const [viewMode, setViewMode] = useState('grid');
     const [showHidden, setShowHidden] = useState(false);
@@ -161,6 +165,14 @@ function FileExplorer({
     const processedItems = useMemo(() => {
         let filtered = showHidden ? items : items.filter((item) => !item.isHidden);
 
+        // Apply Search Filter
+        if (searchQuery && searchQuery.trim() !== '') {
+            const lowerQuery = searchQuery.toLowerCase();
+            filtered = filtered.filter(item =>
+                item.name.toLowerCase().includes(lowerQuery)
+            );
+        }
+
         filtered = [...filtered].sort((a, b) => {
             if (a.isDirectory && !b.isDirectory) return -1;
             if (!a.isDirectory && b.isDirectory) return 1;
@@ -186,7 +198,7 @@ function FileExplorer({
         });
 
         return filtered;
-    }, [items, showHidden, sortBy, sortOrder]);
+    }, [items, showHidden, sortBy, sortOrder, searchQuery]);
 
     // Keyboard shortcuts and Navigation
     useEffect(() => {
@@ -625,7 +637,23 @@ function FileExplorer({
                 <Breadcrumb currentPath={currentPath} onNavigate={onNavigate} />
 
                 <div className="toolbar-actions">
-                    {/* 1. Hidden Files Toggle */}
+                    {/* Search Bar */}
+                    <div className={`search-toolbar-wrapper ${currentPath === 'thispc://' ? 'disabled' : ''}`}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="search-icon">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input
+                            type="text"
+                            className="search-toolbar-input"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => onSearch(e.target.value)}
+                            disabled={currentPath === 'thispc://'}
+                        />
+                    </div>
+
+                    {/* Hidden Files Toggle */}
                     <button
                         className={`toolbar-btn ${showHidden ? 'active' : ''}`}
                         onClick={() => setShowHidden(!showHidden)}
@@ -646,11 +674,46 @@ function FileExplorer({
                         </svg>
                     </button>
 
-                    {/* 2. Sort Button */}
-                    <div className="dropdown-wrapper" onClick={(e) => e.stopPropagation()}>
+                    <div className="view-toggle-wrapper">
+                        <div className="view-toggle">
+                            <button
+                                className={`toolbar-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                                onClick={() => setViewMode('grid')}
+                                title="Grid view"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <rect x="3" y="3" width="7" height="7" />
+                                    <rect x="14" y="3" width="7" height="7" />
+                                    <rect x="14" y="14" width="7" height="7" />
+                                    <rect x="3" y="14" width="7" height="7" />
+                                </svg>
+                            </button>
+                            <button
+                                className={`toolbar-btn ${viewMode === 'list' ? 'active' : ''}`}
+                                onClick={() => setViewMode('list')}
+                                title="List view"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="8" y1="6" x2="21" y2="6" />
+                                    <line x1="8" y1="12" x2="21" y2="12" />
+                                    <line x1="8" y1="18" x2="21" y2="18" />
+                                    <line x1="3" y1="6" x2="3.01" y2="6" />
+                                    <line x1="3" y1="12" x2="3.01" y2="12" />
+                                    <line x1="3" y1="18" x2="3.01" y2="18" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="dropdown-wrapper">
                         <button
-                            className={`toolbar-btn ${showSortMenu ? 'active' : ''}`}
-                            onClick={() => { setShowSortMenu(!showSortMenu); setShowGroupMenu(false); setShowSizeMenu(false); }}
+                            className={`toolbar-btn ${showSortMenu ? 'active' : ''} ${sortBy !== 'name' ? 'selection-status' : ''}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowSortMenu(!showSortMenu);
+                                setShowGroupMenu(false);
+                                setShowSizeMenu(false);
+                            }}
                             title="Sort by"
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -659,7 +722,7 @@ function FileExplorer({
                         </button>
                         {showSortMenu && (
                             <div className="dropdown-menu glass-dropdown">
-                                <div className="dropdown-header">Sort by</div>
+                                <div className="dropdown-header">Sort By</div>
                                 {SORT_OPTIONS.map((opt) => (
                                     <button
                                         key={opt.id}
@@ -667,20 +730,22 @@ function FileExplorer({
                                         onClick={() => toggleSort(opt.id)}
                                     >
                                         <span>{opt.label}</span>
-                                        {sortBy === opt.id && (
-                                            <span className="sort-arrow">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                                        )}
+                                        {sortBy === opt.id && <span className="sort-arrow">{sortOrder === 'asc' ? '▲' : '▼'}</span>}
                                     </button>
                                 ))}
                             </div>
                         )}
                     </div>
 
-                    {/* 3. Group Button */}
-                    <div className="dropdown-wrapper" onClick={(e) => e.stopPropagation()}>
+                    <div className="dropdown-wrapper">
                         <button
                             className={`toolbar-btn ${groupBy !== 'none' ? 'active' : ''}`}
-                            onClick={() => { setShowGroupMenu(!showGroupMenu); setShowSortMenu(false); setShowSizeMenu(false); }}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowGroupMenu(!showGroupMenu);
+                                setShowSortMenu(false);
+                                setShowSizeMenu(false);
+                            }}
                             title="Group by"
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -691,51 +756,21 @@ function FileExplorer({
                         </button>
                         {showGroupMenu && (
                             <div className="dropdown-menu glass-dropdown">
-                                <div className="dropdown-header">Group by</div>
+                                <div className="dropdown-header">Group By</div>
                                 {GROUP_OPTIONS.map((opt) => (
                                     <button
                                         key={opt.id}
                                         className={`dropdown-item ${groupBy === opt.id ? 'active' : ''}`}
                                         onClick={() => { setGroupBy(opt.id); setShowGroupMenu(false); }}
                                     >
-                                        {opt.label}
+                                        <span>{opt.label}</span>
                                     </button>
                                 ))}
                             </div>
                         )}
                     </div>
 
-                    {/* 4. View Toggle */}
-                    <div className="view-toggle">
-                        <button
-                            className={`toolbar-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                            onClick={() => setViewMode('grid')}
-                            title="Grid view"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <rect x="3" y="3" width="7" height="7" />
-                                <rect x="14" y="3" width="7" height="7" />
-                                <rect x="14" y="14" width="7" height="7" />
-                                <rect x="3" y="14" width="7" height="7" />
-                            </svg>
-                        </button>
-                        <button
-                            className={`toolbar-btn ${viewMode === 'list' ? 'active' : ''}`}
-                            onClick={() => setViewMode('list')}
-                            title="List view"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <line x1="8" y1="6" x2="21" y2="6" />
-                                <line x1="8" y1="12" x2="21" y2="12" />
-                                <line x1="8" y1="18" x2="21" y2="18" />
-                                <line x1="3" y1="6" x2="3.01" y2="6" />
-                                <line x1="3" y1="12" x2="3.01" y2="12" />
-                                <line x1="3" y1="18" x2="3.01" y2="18" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    {/* 5. Thumbnail Size Dropdown */}
+                    {/* Thumbnail Size (Grid Only) */}
                     {viewMode === 'grid' && (
                         <div className="dropdown-wrapper" onClick={(e) => e.stopPropagation()}>
                             <button
@@ -775,24 +810,13 @@ function FileExplorer({
                 </div>
             </div>
 
-            {/* Rename Dialog */}
-            {renameItem && (
-                <div className="rename-overlay" onClick={() => setRenameItem(null)}>
-                    <form className="rename-dialog card" onClick={(e) => e.stopPropagation()} onSubmit={handleRenameSubmit}>
-                        <h3>Rename</h3>
-                        <input
-                            type="text"
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={handleRenameKeyDown}
-                            autoFocus
-                            className="rename-input"
-                        />
-                        <div className="rename-actions">
-                            <button type="button" className="rename-btn cancel" onClick={() => setRenameItem(null)}>Cancel</button>
-                            <button type="submit" className="rename-btn confirm">Rename</button>
-                        </div>
-                    </form>
+            {/* Search Header */}
+            {searchQuery && (
+                <div className="search-header">
+                    <h2>Search Results</h2>
+                    <span className="search-meta">
+                        Found {processedItems.length} result{processedItems.length !== 1 ? 's' : ''} for "{searchQuery}"
+                    </span>
                 </div>
             )}
 
@@ -827,6 +851,15 @@ function FileExplorer({
                         <p>{error}</p>
                         <button className="retry-btn" onClick={onRefresh}>Try Again</button>
                     </div>
+                ) : currentPath === 'thispc://' ? (
+                    <ThisPC
+                        drives={items}
+                        cloudDrives={[]}
+                        onNavigate={onNavigate}
+                        viewMode={viewMode}
+                        onShowContextMenu={onShowContextMenu}
+                        specialFolders={specialFolders}
+                    />
                 ) : processedItems.length === 0 ? (
                     <div className="explorer-empty">
                         <span className="empty-icon">📂</span>
@@ -866,6 +899,27 @@ function FileExplorer({
                     </span>
                 )}
             </div>
+
+            {/* Rename Dialog */}
+            {renameItem && (
+                <div className="rename-overlay" onClick={() => setRenameItem(null)}>
+                    <form className="rename-dialog card" onClick={(e) => e.stopPropagation()} onSubmit={handleRenameSubmit}>
+                        <h3>Rename</h3>
+                        <input
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={handleRenameKeyDown}
+                            autoFocus
+                            className="rename-input"
+                        />
+                        <div className="rename-actions">
+                            <button type="button" className="rename-btn cancel" onClick={() => setRenameItem(null)}>Cancel</button>
+                            <button type="submit" className="rename-btn confirm">Rename</button>
+                        </div>
+                    </form>
+                </div>
+            )}
         </main>
     );
 }

@@ -1,4 +1,4 @@
-import logo from '../../assets/logo.png';
+import logo from '../../assets/logo1.png';
 import './TitleBar.css';
 
 function TitleBar({ showPreview, onTogglePreview, onOpenSettings }) {
@@ -22,6 +22,8 @@ function TitleBar({ showPreview, onTogglePreview, onOpenSettings }) {
                     <span className="titlebar-title">Tulip File Explorer</span>
                 </div>
             </div>
+
+
 
             <div className="titlebar-actions">
                 {/* Settings Button */}

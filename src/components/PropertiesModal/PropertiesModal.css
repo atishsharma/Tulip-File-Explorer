@@ -205,3 +205,43 @@
 .properties-btn.primary:hover {
     background: var(--primary-hover);
 }
+
+/* Drive Usage */
+.properties-drive-usage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin-top: var(--space-xs);
+}
+
+.usage-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.usage-track {
+    height: 8px;
+    background: var(--bg-surface-hover);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.usage-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.usage-fill.danger {
+    background: #ef4444;
+}
+
+.usage-total {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    text-align: right;
+    margin-top: 2px;
+}

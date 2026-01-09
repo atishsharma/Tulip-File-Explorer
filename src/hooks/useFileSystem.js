@@ -17,8 +17,8 @@ export function useFileSystem() {
         async function init() {
             try {
                 if (window.electronAPI) {
-                    const [homePath, folders, driveList, cloudList] = await Promise.all([
-                        window.electronAPI.getHomePath(),
+                    const [initialPath, folders, driveList, cloudList] = await Promise.all([
+                        window.electronAPI.getInitialPath(),
                         window.electronAPI.getSpecialFolders(),
                         window.electronAPI.getDrives(),
                         window.electronAPI.rclone.getMounted(),
@@ -30,8 +30,8 @@ export function useFileSystem() {
                         setCloudDrives(cloudList);
                     }
 
-                    // Navigate to home
-                    navigateToPath(homePath, true);
+                    // Navigate to initial path (thispc:// for Windows, home for others)
+                    navigateToPath(initialPath, true);
                 } else {
                     // Running in browser (dev mode without Electron)
                     setError('Electron API not available. Run with Electron for full functionality.');
@@ -69,7 +69,14 @@ export function useFileSystem() {
         setError(null);
 
         try {
-            const result = await window.electronAPI.readDirectory(path);
+            let result;
+
+            // Handle special "This PC" path
+            if (path === 'thispc://') {
+                result = await window.electronAPI.getThisPCView();
+            } else {
+                result = await window.electronAPI.readDirectory(path);
+            }
 
             if (result.success) {
                 setItems(result.items);
