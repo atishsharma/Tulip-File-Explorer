@@ -286,3 +286,72 @@
 .update-icon {
     font-size: 1.2rem;
 }
+
+/* Project Links */
+.project-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.project-link-btn {
+    width: 100%;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+/* First button - Teal/Cyan with theme support */
+.project-link-btn:nth-child(1) {
+    background: linear-gradient(135deg,
+            hsl(174, 94%, 40%) 0%,
+            hsl(188, 94%, 43%) 100%);
+    color: white;
+}
+
+[data-theme="light"] .project-link-btn:nth-child(1) {
+    background: linear-gradient(135deg,
+            hsl(174, 84%, 45%) 0%,
+            hsl(188, 84%, 48%) 100%);
+}
+
+/* Second button - Orange/Red with theme support */
+.project-link-btn:nth-child(2) {
+    background: linear-gradient(135deg,
+            hsl(25, 95%, 53%) 0%,
+            hsl(0, 84%, 60%) 100%);
+    color: white;
+}
+
+[data-theme="light"] .project-link-btn:nth-child(2) {
+    background: linear-gradient(135deg,
+            hsl(25, 90%, 55%) 0%,
+            hsl(0, 80%, 62%) 100%);
+}
+
+.project-link-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    filter: brightness(1.15);
+}
+
+.project-link-btn:active {
+    transform: translateY(0);
+}
+
+.project-icon {
+    font-size: 1.2rem;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}

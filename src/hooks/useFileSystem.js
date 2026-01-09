@@ -111,12 +111,18 @@ export function useFileSystem() {
     const navigateBack = useCallback(() => {
         if (historyIndex > 0) {
             const newIndex = historyIndex - 1;
-            const path = history[newIndex];
+            const path = navigationHistory[newIndex];
             setHistoryIndex(newIndex);
 
             // Navigate without adding to history
             setLoading(true);
-            window.electronAPI.readDirectory(path).then((result) => {
+
+            // Handle special "This PC" path
+            const promise = path === 'thispc://'
+                ? window.electronAPI.getThisPCView()
+                : window.electronAPI.readDirectory(path);
+
+            promise.then((result) => {
                 if (result.success) {
                     setItems(result.items);
                     setCurrentPath(result.path);
@@ -124,17 +130,23 @@ export function useFileSystem() {
                 setLoading(false);
             });
         }
-    }, [history, historyIndex]);
+    }, [navigationHistory, historyIndex]);
 
     const navigateForward = useCallback(() => {
-        if (historyIndex < history.length - 1) {
+        if (historyIndex < navigationHistory.length - 1) {
             const newIndex = historyIndex + 1;
-            const path = history[newIndex];
+            const path = navigationHistory[newIndex];
             setHistoryIndex(newIndex);
 
             // Navigate without adding to history
             setLoading(true);
-            window.electronAPI.readDirectory(path).then((result) => {
+
+            // Handle special "This PC" path
+            const promise = path === 'thispc://'
+                ? window.electronAPI.getThisPCView()
+                : window.electronAPI.readDirectory(path);
+
+            promise.then((result) => {
                 if (result.success) {
                     setItems(result.items);
                     setCurrentPath(result.path);
@@ -142,7 +154,7 @@ export function useFileSystem() {
                 setLoading(false);
             });
         }
-    }, [history, historyIndex]);
+    }, [navigationHistory, historyIndex]);
 
     const navigateUp = useCallback(() => {
         if (!currentPath) return;
@@ -298,8 +310,8 @@ export function useFileSystem() {
         navigateForward,
         navigateUp,
         canGoBack: historyIndex > 0,
-        canGoForward: historyIndex < history.length - 1,
-        canGoUp: currentPath && currentPath !== '/' && !currentPath.match(/^[A-Z]:\\?$/),
+        canGoForward: historyIndex < navigationHistory.length - 1,
+        canGoUp: currentPath && currentPath !== '/' && currentPath !== 'thispc://' && !currentPath.match(/^[A-Z]:\\?$/),
         openFile,
         refresh,
         deleteItem,

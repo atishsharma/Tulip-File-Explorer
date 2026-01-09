@@ -49,6 +49,13 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                                     <span className="theme-icon">🌙</span>
                                     <span className="theme-label">Dark</span>
                                 </button>
+                                <button
+                                    className={`theme-option ${theme === 'auto' ? 'active' : ''}`}
+                                    onClick={() => onThemeChange('auto')}
+                                >
+                                    <span className="theme-icon">🖥️</span>
+                                    <span className="theme-label">Auto</span>
+                                </button>
                             </div>
                         </section>
 
@@ -116,6 +123,23 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                                 <span className="update-icon">📥</span>
                                 <span>Check for Updates</span>
                             </button>
+
+                            <div className="project-links">
+                                <button
+                                    className="project-link-btn"
+                                    onClick={() => window.electronAPI?.openExternal('https://atishaksharma.com')}
+                                >
+                                    <span className="project-icon">🌐</span>
+                                    <span>Webpage Testing Tool</span>
+                                </button>
+                                <button
+                                    className="project-link-btn"
+                                    onClick={() => window.electronAPI?.openExternal('https://atishaksharma.com/hub')}
+                                >
+                                    <span className="project-icon">🔖</span>
+                                    <span>Bookmark Manager Hub</span>
+                                </button>
+                            </div>
                         </section>
                     </div>
                 </div>

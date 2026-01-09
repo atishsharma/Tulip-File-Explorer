@@ -29,10 +29,16 @@
   "build": {
     "appId": "com.tulip.fileexplorer",
     "productName": "Tulip File Explorer",
+    "asar": true,
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "!**/*.map",
+      "!**/node_modules/.cache/**",
+      "!**/.git/**",
+      "!**/tests/**",
+      "!**/docs/**"
     ],
     "directories": {
       "buildResources": "assets"

@@ -55,7 +55,7 @@ function FileExplorer({
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState('asc');
     const [groupBy, setGroupBy] = useState('none');
-    const [thumbnailSize, setThumbnailSize] = useState(160);
+    const [thumbnailSize, setThumbnailSize] = useState(256);
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [showGroupMenu, setShowGroupMenu] = useState(false);
     const [showSizeMenu, setShowSizeMenu] = useState(false);
@@ -790,7 +790,7 @@ function FileExplorer({
                                         <input
                                             type="range"
                                             min="48"
-                                            max="160"
+                                            max="256"
                                             value={thumbnailSize}
                                             onChange={(e) => setThumbnailSize(Number(e.target.value))}
                                             className="size-slider"
@@ -802,6 +802,7 @@ function FileExplorer({
                                         <button onClick={() => setThumbnailSize(80)}>M</button>
                                         <button onClick={() => setThumbnailSize(120)}>L</button>
                                         <button onClick={() => setThumbnailSize(160)}>XL</button>
+                                        <button onClick={() => setThumbnailSize(256)}>XXL</button>
                                     </div>
                                 </div>
                             )}
@@ -858,6 +859,7 @@ function FileExplorer({
                         onNavigate={onNavigate}
                         viewMode={viewMode}
                         onShowContextMenu={onShowContextMenu}
+                        onShowProperties={onShowProperties}
                         specialFolders={specialFolders}
                     />
                 ) : processedItems.length === 0 ? (

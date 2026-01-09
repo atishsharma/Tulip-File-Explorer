@@ -19,7 +19,7 @@ function useInterval(callback, delay) {
     }, [delay]);
 }
 
-function ThisPC({ drives: initialDrives, cloudDrives, onNavigate, viewMode = 'grid', onShowContextMenu, specialFolders = [] }) {
+function ThisPC({ drives: initialDrives, cloudDrives, onNavigate, viewMode = 'grid', onShowContextMenu, onShowProperties, specialFolders = [] }) {
     // Filter out libraries from drives list to prevent them showing as drives
     const validDrives = (initialDrives || []).filter(item =>
         !['Desktop', 'Documents', 'Downloads', 'Pictures', 'Music', 'Videos', 'Home'].includes(item.name) &&
@@ -112,9 +112,24 @@ function ThisPC({ drives: initialDrives, cloudDrives, onNavigate, viewMode = 'gr
     }, []);
 
     const getHeaderName = () => {
-        if (platform === 'darwin') return 'Macintosh';
-        if (platform === 'linux') return 'Computer';
+        if (platform === 'darwin') return 'This Mac System';
+        if (platform === 'linux') return 'This Linux System';
         return 'This PC';
+    };
+
+    const handleContextMenu = async (e, menuType, item) => {
+        e.preventDefault();
+        if (!onShowContextMenu) return;
+
+        const action = await onShowContextMenu(menuType, item);
+
+        if (!action) return;
+
+        if (action === 'open' && item) {
+            onNavigate(item.path);
+        } else if (action === 'properties' && item) {
+            onShowProperties?.(item);
+        }
     };
 
     return (

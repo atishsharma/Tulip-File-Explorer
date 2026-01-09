@@ -198,11 +198,8 @@ ipcMain.handle('fs:read-directory', async (event, dirPath) => {
 
 // Get initial path based on platform
 ipcMain.handle('fs:get-initial-path', () => {
-    const platform = os.platform();
-    if (platform === 'win32') {
-        return 'thispc://'; // Special path for Windows "This PC" view
-    }
-    return app.getPath('home'); // Default to home for Linux/Mac
+    // Return "This PC" view for all platforms (was previously Windows-only)
+    return 'thispc://';
 });
 
 // Get This PC view (Windows only)
