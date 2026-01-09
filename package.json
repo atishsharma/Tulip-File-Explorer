@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5174 && electron .\"",
-    "dist": "vite build && electron-builder --win --linux"
+    "dist": "vite build && electron-builder --win --mac --linux"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -37,12 +37,23 @@
     "directories": {
       "buildResources": "assets"
     },
+    "mac": {
+      "icon": "build/icons/512x512.png",
+      "target": {
+        "target": "zip",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
+    },
     "win": {
       "icon": "build/icons/icon.ico",
       "target": {
         "target": "zip",
         "arch": [
-          "x64"
+          "x64",
+          "arm64"
         ]
       }
     },
