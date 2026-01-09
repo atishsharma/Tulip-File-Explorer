@@ -68,7 +68,7 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 
 ### Building for Production
 
-To create a distributable (exe/dmg/AppImage):
+To create a distributable (exe/dmg/deb):
 
 ```bash
 npm run dist
