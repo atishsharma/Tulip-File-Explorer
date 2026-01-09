@@ -1,5 +1,7 @@
 # 🌷 Tulip File Explorer
 
+Learn More at https://atishaksharma.com/tulip 
+
 ### Designed with ❤️ by **Atish Ak Sharma**.
 
 <img src="https://raw.githubusercontent.com/atishsharma/Tulip-File-Explorer/main/src/assets/logo1.png" style="max-width:100%; width:170px;" /> 
