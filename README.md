@@ -43,6 +43,8 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 
 - Node.js (v16 or higher)
 - npm or yarn
+- WinFsp For Rclone Mount On Windows
+- Rclone For Cloud Drives
 
 ### 📝 Release Notes
  - First Release : 09 January 2026
