@@ -1,7 +1,7 @@
 {
   "name": "tulip-file-explorer",
   "private": true,
-  "version": "1.4.3-2",
+  "version": "1.5.0",
   "description": "A modern cross-platform file explorer with glass effect UI",
   "author": "Atish Ak Sharma <atishaksharma@gmail.com> (https://atishakasharma.com/)",
   "type": "module",
@@ -89,10 +89,21 @@
           ]
         }
       ],
-      "category": "Utility"
-    }
+      "category": "Utility",
+      "syncDesktopName": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "atishsharma",
+        "repo": "Tulip-File-Explorer",
+        "releaseType": "draft"
+      }
+    ],
+    "artifactName": "Tulip-File-Explorer-${version}-${os}-${arch}.${ext}"
   },
   "engines": {
     "node": ">=22.12"
-  }
+  },
+  "desktopName": "tulip-file-explorer.desktop"
 }
