@@ -79,7 +79,8 @@ function FileItem({ item, viewMode, onOpen, selected, onSelect, onContextMenu, t
     };
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
+        // Alt+Enter (properties) and Ctrl+Enter are handled by the explorer
+        if (e.key === 'Enter' && !e.altKey && !e.ctrlKey && !e.metaKey) {
             onOpen(item);
         }
     };
@@ -100,23 +101,23 @@ function FileItem({ item, viewMode, onOpen, selected, onSelect, onContextMenu, t
                 tabIndex={0}
             >
                 <td className="file-cell file-name">
-                    <span className="file-icon-wrapper-small">
+                    <span className="file-icon-wrapper-small" style={{ '--icon-size': '32px' }}>
                         {thumbnail ? (
                             <img src={thumbnail} alt="" className="file-thumbnail-small" />
                         ) : (
-                            <span className="file-icon">{icon}</span>
+                            icon
                         )}
                     </span>
                     <span className="file-name-text truncate">{item.name}</span>
                 </td>
                 <td className="file-cell file-type truncate">{getFileType(item)}</td>
-                <td className="file-cell file-size">{item.isDirectory ? '-' : formatFileSize(item.size)}</td>
+                <td className="file-cell file-size">{item.isDirectory ? '—' : formatFileSize(item.size)}</td>
                 <td className="file-cell file-date truncate">{formatDate(item.modified)}</td>
             </tr>
         );
     }
 
-    // Grid view with variable thumbnail size
+    // Grid view with variable icon size
     return (
         <button
             data-path={item.path}
@@ -128,35 +129,22 @@ function FileItem({ item, viewMode, onOpen, selected, onSelect, onContextMenu, t
             onClick={handleClick}
             onContextMenu={handleContextMenu}
             onKeyDown={handleKeyDown}
-            style={{ width: thumbnailSize + 32 }}
         >
-            <div
+            <span
                 className="file-icon-wrapper"
-                style={{ width: thumbnailSize, height: thumbnailSize }}
+                style={{ '--icon-size': `${thumbnailSize}px` }}
             >
                 {loading ? (
-                    <div className="thumbnail-loading">
-                        <div className="spinner-small"></div>
-                    </div>
+                    <span className="thumbnail-loading"><span className="spinner-small" /></span>
                 ) : thumbnail ? (
                     <img src={thumbnail} alt="" className="file-thumbnail-grid" />
                 ) : (
-                    <span className="file-icon-large" style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--primary)',
-                        padding: '10%'
-                    }}>
-                        {icon}
-                    </span>
+                    icon
                 )}
-            </div>
-            <span className="file-name-grid truncate">{item.name}</span>
-            {!item.isDirectory && thumbnailSize >= 64 && (
-                <span className="file-size-grid">{formatFileSize(item.size)}</span>
+            </span>
+            <span className="file-name-grid">{item.name}</span>
+            {thumbnailSize >= 64 && (
+                <span className="file-size-grid">{item.isDirectory ? 'Folder' : formatFileSize(item.size)}</span>
             )}
         </button>
     );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getFileIcon } from '../../utils/fileIcons';
+import { getFileIcon, LineIcon } from '../../utils/fileIcons';
 import { formatFileSize, formatDate, getFileType } from '../../utils/formatters';
 import { fileUrl } from '../../utils/paths';
 import { useModal } from '../../hooks/useModal';
@@ -160,23 +160,23 @@ function PropertiesModal({ isOpen, onClose, item: initialItem, onRename, onChang
     const isHidden = contentInfo ? contentInfo.isHidden : (item.isHidden || item.name.startsWith('.'));
 
     return (
-        <div className="properties-overlay" onClick={onClose}>
+        <div className="overlay" onClick={onClose}>
             <div
                 ref={dialogRef}
-                className="properties-modal card scale-in"
+                className="properties-modal dialog"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="properties-title"
                 onClick={(e) => e.stopPropagation()}
             >
                 <header className="properties-header">
-                    <div className="properties-icon">
+                    <div className="properties-icon" style={{ '--icon-size': '48px' }}>
                         {metadata?.type === 'image' ? (
                             <img
                                 src={fileUrl(item.path)}
                                 alt=""
                                 className="properties-thumbnail"
-                                style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px' }}
+                                
                             />
                         ) : (
                             getFileIcon(item)
@@ -201,10 +201,8 @@ function PropertiesModal({ isOpen, onClose, item: initialItem, onRename, onChang
                         )}
                         <span className="properties-type">{typeLabel(item)}</span>
                     </div>
-                    <button className="properties-close" onClick={onClose} aria-label="Close">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
+                    <button className="dialog-close" onClick={onClose} aria-label="Close">
+                        <LineIcon name="close" size={14} strokeWidth={2.2} />
                     </button>
                 </header>
 
@@ -331,19 +329,17 @@ function PropertiesModal({ isOpen, onClose, item: initialItem, onRename, onChang
                 <footer className="properties-footer">
                     {canRename && (
                         <button
-                            className="properties-btn outlined"
+                            className="btn btn-secondary"
                             onClick={() => {
                                 setIsRenaming(true);
                                 setNewName(item.name);
                             }}
                         >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                            </svg>
+                            <LineIcon name="rename" size={15} />
                             Rename
                         </button>
                     )}
-                    <button className="properties-btn primary" onClick={onClose}>
+                    <button className="btn btn-primary" onClick={onClose}>
                         OK
                     </button>
                 </footer>

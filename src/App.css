@@ -1,5 +1,63 @@
-.app-content {
-  display: flex;
-  flex: 1;
+/* App shell: ambient wallpaper behind one glass window */
+.app {
+  position: relative;
+  height: 100vh;
   overflow: hidden;
+  background: var(--wallpaper);
+  border-radius: var(--radius-lg);
+  isolation: isolate;
+}
+
+.app-wallpaper {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-wallpaper::before,
+.app-wallpaper::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+}
+
+.app-wallpaper::before {
+  width: 55vw;
+  height: 55vw;
+  left: -12vw;
+  top: -22vw;
+  background: var(--blob-1);
+}
+
+.app-wallpaper::after {
+  width: 50vw;
+  height: 50vw;
+  right: -8vw;
+  bottom: -26vw;
+  background: var(--blob-2);
+}
+
+[data-glass="off"] .app-wallpaper {
+  display: none;
+}
+
+.app-window {
+  display: flex;
+  height: 100%;
+  background: var(--window);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }

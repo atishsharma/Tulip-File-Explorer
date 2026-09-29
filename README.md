@@ -13,8 +13,8 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 
 - **Standard File Operations**: Open, Cut, Copy, Paste, Delete (to Trash), Rename, New Folder, New File, Compress to ZIP.
 - **Safe by default**: never overwrites existing files on rename, create or paste (conflicts get a "name (2)" suffix).
-- **Glassmorphism UI**: Responsive interface inspired by modern iOS/Windows 11 design.
-- **Themes**: Light, Dark and Auto (follows the OS), plus accent colors.
+- **Glass design language**: Frosted translucent panels, Figtree type, line icons and colour-coded file badges, tuned for both light and dark (turn transparency off in Settings for solid surfaces).
+- **Themes**: Light, Dark and Match system, with eight accent colours (Tulip Rose by default).
 - **Preview Panel**: Images, video, audio and plain-text/code files (first 50 KB). PDFs and other types open in their default app.
 - **Thumbnails**: Cached image thumbnails. Video thumbnails on Windows/macOS via the OS; on Linux when `ffmpeg` is installed.
 - **Advanced Sorting & Grouping**:
@@ -28,13 +28,13 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
   - `F2` to Rename, `Alt + Enter` for Properties, `Enter` to open.
   - `Ctrl + A` to Select All, `Shift + Arrow Keys` / `Shift + Click` for range selection.
   - `Alt + ←` / `Backspace` Back, `Alt + →` Forward, `Alt + ↑` Up, `F5` Refresh.
-- **Cross-Platform**: Builds for Windows (zip), macOS (zip) and Linux (deb, AppImage, tar.gz).
+- **Cross-Platform**: Builds for Windows (zip), macOS (zip) and Linux (deb, AppImage, tar.gz), all with the Tulip app icon. The tar.gz includes `install-desktop-entry.sh` to add Tulip to your app menu.
 
 ## 🛠 Tech Stack
 
 - **Frontend**: React.js 18 (Vite 8)
 - **Backend/Shell**: Electron 44
-- **Styling**: Pure CSS (Variables, Glassmorphism) - No CSS frameworks used!
+- **Styling**: Pure CSS design tokens (light/dark, accent presets, glass) — no CSS frameworks
 - **State Management**: React Hooks
 - **Build Tool**: Electron Builder
 
@@ -50,7 +50,7 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 
 ### 📝 Release Notes
  - First Release : 09 January 2026
- - Version : 1.5.0
+ - Version : 1.6.1
  - Available for : Windows, Linux, macOS
  - Download : https://github.com/atishsharma/Tulip-File-Explorer/releases
 
@@ -78,6 +78,7 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 npm run lint   # ESLint
 npm test       # Vitest unit tests
 npm run check  # lint + test + build
+npm run icons  # regenerate every app icon from src/assets/logo1.png
 ```
 
 ### Building for Production

@@ -1,307 +1,208 @@
-/* =========================================
-   This PC - Styles
-   ========================================= */
+.this-pc {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    padding: 20px 16px 8px;
+}
 
-.this-pc-container {
-    padding: 3px;
-    /* Reduced to 3px */
-    overflow-y: auto;
-    height: 100%;
+.thispc-heading h1 {
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+}
+
+.thispc-heading p {
+    margin-top: 4px;
+    font-size: var(--font-size-lg);
+    color: var(--text-2);
 }
 
 .pc-section {
-    margin-bottom: 10px;
-}
-
-.thispc-header {
-    text-align: center;
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 10px;
-    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    opacity: 0.9;
-    letter-spacing: -0.5px;
-    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.pc-section-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 20px;
-    padding-left: 5px;
-    opacity: 0.8;
-}
-
-/* Grids - Grid View */
-.libraries-grid,
-.drives-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 20px;
-}
-
-/* Glass Card Base */
-.glass-card {
-    background: var(--bg-surface);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-lg);
-    padding: 20px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all var(--transition-normal);
-    box-shadow: var(--shadow-sm);
-    position: relative;
-    overflow: hidden;
+    gap: 12px;
 }
 
-.glass-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.01) 100%);
-    opacity: 0;
-    transition: opacity var(--transition-normal);
-}
-
-.glass-card:hover {
-    transform: translateY(-4px);
-    background: var(--bg-surface-hover);
-    border-color: var(--primary-container);
-    box-shadow: var(--shadow-md);
-}
-
-/* Selected State */
-.glass-card.selected {
-    background: var(--primary-light-bg);
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px var(--primary-container);
-}
-
-.glass-card:hover::before {
-    opacity: 1;
-}
-
-.glass-card:active {
-    transform: scale(0.98);
-    background: var(--bg-surface-active);
-}
-
-/* Icons */
-.library-icon,
-.drive-icon {
+.pc-card {
     display: flex;
-    /* Ensure SVG centers */
-    justify-content: center;
-    align-items: center;
-    width: 64px;
-    height: 64px;
-    margin-bottom: 12px;
-    color: var(--primary);
-    /* Primary Color for Icons */
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
-    z-index: 1;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    border-radius: var(--radius-xl);
+    background: var(--card);
+    border: 1px solid var(--line);
+    color: var(--text);
+    text-align: left;
+    transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.libraries-grid .library-icon {
+.pc-card:hover {
+    background: var(--control);
+    border-color: var(--line-strong);
+    box-shadow: var(--shadow-control);
+}
+
+.pc-card:active {
+    transform: scale(0.99);
+}
+
+.pc-card:focus-visible {
+    outline: 2px solid var(--accent-text);
+    outline-offset: 2px;
+}
+
+/* Libraries */
+.libraries-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: 12px;
+}
+
+.library-card {
+    height: 96px;
+    justify-content: space-between;
+    padding: 14px;
+    border-radius: var(--radius-lg);
+}
+
+.library-chip {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     display: flex;
-    justify-content: center;
     align-items: center;
-    width: 52px;
-    /* 20% smaller than 64px */
-    height: 52px;
-    padding: 10px;
-    margin-bottom: 12px;
-    color: var(--primary);
-    border: 2px solid var(--primary);
-    border-radius: 50%;
-    transition: all var(--transition-normal);
-    z-index: 1;
-    background: transparent;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent-text);
 }
 
-.libraries-grid .glass-card:hover .library-icon {
-    background: var(--primary);
-    color: var(--text-on-primary);
-    box-shadow: 0 4px 12px var(--primary-container);
+.library-chip[data-lib="desktop"] { background: var(--badge-doc-bg); color: var(--badge-doc-fg); }
+.library-chip[data-lib="documents"] { background: var(--badge-slides-bg); color: var(--badge-slides-fg); }
+.library-chip[data-lib="downloads"] { background: var(--badge-sheet-bg); color: var(--badge-sheet-fg); }
+.library-chip[data-lib="pictures"] { background: var(--badge-video-bg); color: var(--badge-video-fg); }
+.library-chip[data-lib="videos"] { background: var(--badge-pdf-bg); color: var(--badge-pdf-fg); }
+.library-chip[data-lib="music"] { background: var(--badge-audio-bg); color: var(--badge-audio-fg); }
+
+.library-name {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
 }
 
-.library-icon svg,
-.drive-icon svg {
+/* Drives */
+.drives-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.drive-card-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     width: 100%;
-    height: 100%;
+    min-width: 0;
 }
 
-.cloud-icon {
-    width: 72px;
-    height: 72px;
+.drive-card-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--fill);
+    color: var(--text-2);
 }
 
-/* Text */
-.library-name,
+.drive-card-icon.cloud {
+    background: var(--badge-doc-bg);
+    color: var(--badge-doc-fg);
+}
+
+.drive-card-icon img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.drive-card-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .drive-name {
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: var(--text-primary);
-    text-align: center;
-    margin-bottom: 4px;
-    z-index: 1;
-    width: 100%;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.drive-label,
-.drive-provider {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-    text-align: center;
-    z-index: 1;
-}
-
-/* Progress Bar */
-.drive-status {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    z-index: 1;
-}
-
-.drive-bar-track {
-    width: 100%;
-    background: var(--border-strong);
-    height: 6px;
-    border-radius: var(--radius-full);
+.drive-path {
+    font-size: var(--font-size-sm);
+    color: var(--text-3);
+    white-space: nowrap;
     overflow: hidden;
-    position: relative;
+    text-overflow: ellipsis;
 }
 
-.drive-bar-fill {
-    height: 100%;
-    border-radius: var(--radius-full);
-    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    background-color: var(--primary);
-    /* Default primary */
+.drive-percent {
+    flex-shrink: 0;
+    font-size: 12.5px;
+    font-weight: var(--font-weight-bold);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-2);
 }
 
-.drive-text {
-    font-size: 0.75rem;
-    color: var(--text-tertiary);
+.drive-percent.warn {
+    color: var(--warning);
 }
 
-/* List View Styles */
-.thispc-list-view .drives-grid,
-.thispc-list-view .libraries-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.drive-card .usage-bar {
+    height: 6px;
 }
 
-.thispc-list-view .glass-card {
+.drive-card .drive-text {
+    font-size: 12.5px;
+    color: var(--text-2);
+}
+
+.add-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 74px;
+    background: transparent;
+    border: 1px dashed var(--line-strong);
+    color: var(--text-2);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
+}
+
+.add-card:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent-ring);
+    color: var(--accent-text);
+    box-shadow: none;
+}
+
+/* List view: one column of wide rows */
+.this-pc.is-list .libraries-grid,
+.this-pc.is-list .drives-grid {
+    grid-template-columns: 1fr;
+}
+
+.this-pc.is-list .library-card {
+    height: auto;
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-    padding: 12px 16px;
-    height: auto;
-    min-height: 64px;
-    gap: 16px;
-}
-
-.thispc-list-view .glass-card:hover {
-    transform: none;
-    /* No lift in list view */
-    background: var(--bg-surface-hover);
-}
-
-.thispc-list-view .drive-icon-wrapper {
-    width: 32px;
-    height: 32px;
-    margin-bottom: 0;
-    flex-shrink: 0;
-}
-
-.thispc-list-view .library-icon {
-    width: 36px;
-    /* Smaller in list view */
-    height: 36px;
-    padding: 6px;
-    margin-bottom: 0;
-    flex-shrink: 0;
-    border-width: 1.5px;
-    /* Thinner border for small size */
-}
-
-.thispc-list-view .pc-section-title {
-    margin-bottom: 12px;
-    /* Tighter header */
-}
-
-.thispc-list-view .drive-info-center {
-    flex: 1;
-    /* Take remaining space */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    min-width: 0;
-}
-
-.thispc-list-view .drive-name,
-.thispc-list-view .library-name {
-    text-align: left;
-    margin-bottom: 2px;
-    margin-left: 8px;
-    /* Added padding/margin */
-    font-size: var(--font-size-md);
-}
-
-.thispc-list-view .drive-label {
-    text-align: left;
-    margin-bottom: 0;
-    margin-left: 8px;
-    /* Added padding/margin */
-}
-
-.thispc-list-view .drive-status {
-    width: 200px;
-    /* Fixed width for status in list view */
-    align-items: flex-end;
-    margin-left: auto;
-    /* Push to right */
-}
-
-.thispc-list-view .drive-bar-track {
-    margin-top: 4px;
-}
-
-/* Loading/Fade */
-.fade-in {
-    animation: fadeIn var(--transition-normal);
-}
-/* Cards are buttons for keyboard access; reset native button styling */
-button.glass-card {
-    font: inherit;
-    color: inherit;
-    text-align: inherit;
-    width: 100%;
-}
-
-.glass-card:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
+    gap: 12px;
+    padding: 10px 14px;
 }

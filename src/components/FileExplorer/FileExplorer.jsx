@@ -3,8 +3,10 @@ import Breadcrumb from '../Breadcrumb/Breadcrumb';
 import FileItem from '../FileItem/FileItem';
 import ThisPC from '../ThisPC/ThisPC';
 import { useModal } from '../../hooks/useModal';
-import { calendarDaysAgo } from '../../utils/formatters';
-import { THIS_PC } from '../../utils/paths';
+import { calendarDaysAgo, formatFileSize } from '../../utils/formatters';
+import { THIS_PC, splitPath } from '../../utils/paths';
+import { LineIcon } from '../../utils/fileIcons';
+import { readStorage, writeStorage } from '../../utils/storage';
 import './FileExplorer.css';
 
 const SORT_OPTIONS = [
@@ -51,8 +53,11 @@ function FileExplorer({
     searchQuery = '',
     onSearch,
     shortcutsEnabled = true,
+    headerEnd = null,
+    onAddCloudDrive,
+    preview = null,
 }) {
-    const [viewMode, setViewMode] = useState('grid');
+    const [viewMode, setViewMode] = useState(() => (readStorage('tulip-view-mode', 'grid') === 'list' ? 'list' : 'grid'));
     const [showHidden, setShowHidden] = useState(false);
     const [renameItem, setRenameItem] = useState(null);
     const [renameValue, setRenameValue] = useState('');
@@ -60,7 +65,18 @@ function FileExplorer({
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState('asc');
     const [groupBy, setGroupBy] = useState('none');
-    const [thumbnailSize, setThumbnailSize] = useState(256);
+    const [thumbnailSize, setThumbnailSize] = useState(() => {
+        const saved = Number(readStorage('tulip-icon-size', 96));
+        return saved >= 48 && saved <= 256 ? saved : 96;
+    });
+
+    // Remember layout choices between sessions
+    useEffect(() => {
+        writeStorage('tulip-view-mode', viewMode);
+    }, [viewMode]);
+    useEffect(() => {
+        writeStorage('tulip-icon-size', thumbnailSize);
+    }, [thumbnailSize]);
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [showGroupMenu, setShowGroupMenu] = useState(false);
     const [showSizeMenu, setShowSizeMenu] = useState(false);
@@ -615,134 +631,97 @@ function FileExplorer({
         );
     };
 
+    const folderTitle = isThisPC ? '' : (splitPath(currentPath).pop()?.name || currentPath || '');
+    const sortLabel = SORT_OPTIONS.find((o) => o.id === sortBy)?.label || 'Name';
+    const groupLabel = GROUP_OPTIONS.find((o) => o.id === groupBy)?.label;
+    const selectedSize = selectedItems.length > 0
+        ? itemsForPaths(selectedItems).reduce((sum, i) => sum + (i.isDirectory ? 0 : (i.size || 0)), 0)
+        : 0;
+
     return (
         <main className="file-explorer">
-            {/* Toolbar */}
-            <div className="explorer-toolbar">
-                <div className="toolbar-nav">
-                    <button className="toolbar-btn" onClick={onNavigateBack} disabled={!canGoBack} title="Back (Alt+Left)" aria-label="Back">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M19 12H5M12 19l-7-7 7-7" />
-                        </svg>
+            {/* Window header: navigation, path, search, view options and window controls */}
+            <header className="explorer-header">
+                <div className="header-nav">
+                    <button className="icon-btn" onClick={onNavigateBack} disabled={!canGoBack} title="Back (Alt+Left)" aria-label="Back">
+                        <LineIcon name="back" strokeWidth={2} />
                     </button>
-                    <button className="toolbar-btn" onClick={onNavigateForward} disabled={!canGoForward} title="Forward (Alt+Right)" aria-label="Forward">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
+                    <button className="icon-btn" onClick={onNavigateForward} disabled={!canGoForward} title="Forward (Alt+Right)" aria-label="Forward">
+                        <LineIcon name="forward" strokeWidth={2} />
                     </button>
-                    <button className="toolbar-btn" onClick={onNavigateUp} disabled={!canGoUp} title="Up (Alt+Up)" aria-label="Up">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 19V5M5 12l7-7 7 7" />
-                        </svg>
+                    <button className="icon-btn" onClick={onNavigateUp} disabled={!canGoUp} title="Up (Alt+Up)" aria-label="Up">
+                        <LineIcon name="up" strokeWidth={2} />
                     </button>
-                    <button className="toolbar-btn" onClick={() => onRefresh?.()} title="Refresh (F5)" aria-label="Refresh">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M23 4v6h-6M1 20v-6h6" />
-                            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-                        </svg>
+                    <button className="icon-btn" onClick={() => onRefresh?.()} title="Refresh (F5)" aria-label="Refresh">
+                        <LineIcon name="refresh" />
                     </button>
                 </div>
 
                 <Breadcrumb currentPath={currentPath} onNavigate={onNavigate} />
 
-                <div className="toolbar-actions">
-                    {/* Search Bar */}
-                    <div className={`search-toolbar-wrapper ${isThisPC ? 'disabled' : ''}`}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="search-icon">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input
-                            type="text"
-                            className="search-toolbar-input"
-                            placeholder="Search..."
-                            aria-label="Search this folder"
-                            value={searchQuery}
-                            onChange={(e) => onSearch(e.target.value)}
-                            disabled={isThisPC}
-                        />
-                    </div>
+                <label className={`header-search ${isThisPC ? 'disabled' : ''}`}>
+                    <LineIcon name="search" size={16} strokeWidth={2} />
+                    <input
+                        type="search"
+                        placeholder={isThisPC ? 'Open a folder to search' : `Search ${folderTitle || 'folder'}`}
+                        aria-label="Search this folder"
+                        value={searchQuery}
+                        onChange={(e) => onSearch(e.target.value)}
+                        disabled={isThisPC}
+                    />
+                </label>
 
-                    {/* Hidden Files Toggle */}
-                    <button
-                        className={`toolbar-btn ${showHidden ? 'active' : ''}`}
-                        onClick={() => setShowHidden(!showHidden)}
-                        title={showHidden ? 'Hide hidden files' : 'Show hidden files'}
-                        aria-label={showHidden ? 'Hide hidden files' : 'Show hidden files'}
-                        aria-pressed={showHidden}
-                    >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            {showHidden ? (
-                                <>
-                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                    <circle cx="12" cy="12" r="3" />
-                                </>
-                            ) : (
-                                <>
-                                    <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24" />
-                                    <line x1="1" y1="1" x2="23" y2="23" />
-                                </>
-                            )}
-                        </svg>
-                    </button>
-
-                    <div className="view-toggle-wrapper">
-                        <div className="view-toggle">
-                            <button
-                                className={`toolbar-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                                onClick={() => setViewMode('grid')}
-                                title="Grid view" aria-label="Grid view"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <rect x="3" y="3" width="7" height="7" />
-                                    <rect x="14" y="3" width="7" height="7" />
-                                    <rect x="14" y="14" width="7" height="7" />
-                                    <rect x="3" y="14" width="7" height="7" />
-                                </svg>
-                            </button>
-                            <button
-                                className={`toolbar-btn ${viewMode === 'list' ? 'active' : ''}`}
-                                onClick={() => setViewMode('list')}
-                                title="List view" aria-label="List view"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <line x1="8" y1="6" x2="21" y2="6" />
-                                    <line x1="8" y1="12" x2="21" y2="12" />
-                                    <line x1="8" y1="18" x2="21" y2="18" />
-                                    <line x1="3" y1="6" x2="3.01" y2="6" />
-                                    <line x1="3" y1="12" x2="3.01" y2="12" />
-                                    <line x1="3" y1="18" x2="3.01" y2="18" />
-                                </svg>
-                            </button>
-                        </div>
+                <div className="header-tools">
+                    <div className="segmented" role="group" aria-label="View">
+                        <button
+                            className={viewMode === 'grid' ? 'active' : ''}
+                            onClick={() => setViewMode('grid')}
+                            title="Grid view"
+                            aria-label="Grid view"
+                            aria-pressed={viewMode === 'grid'}
+                        >
+                            <LineIcon name="grid" size={16} strokeWidth={2} />
+                        </button>
+                        <button
+                            className={viewMode === 'list' ? 'active' : ''}
+                            onClick={() => setViewMode('list')}
+                            title="List view"
+                            aria-label="List view"
+                            aria-pressed={viewMode === 'list'}
+                        >
+                            <LineIcon name="list" size={16} strokeWidth={2} />
+                        </button>
                     </div>
 
                     <div className="dropdown-wrapper">
                         <button
-                            className={`toolbar-btn ${showSortMenu ? 'active' : ''} ${sortBy !== 'name' ? 'selection-status' : ''}`}
+                            className={`icon-btn ${showSortMenu ? 'active' : ''}`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setShowSortMenu(!showSortMenu);
                                 setShowGroupMenu(false);
                                 setShowSizeMenu(false);
                             }}
-                            title="Sort by" aria-label="Sort by"
+                            title="Sort by"
+                            aria-label="Sort by"
+                            aria-haspopup="menu"
+                            aria-expanded={showSortMenu}
                         >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M3 6h18M6 12h12M9 18h6" />
-                            </svg>
+                            <LineIcon name="sort" />
                         </button>
                         {showSortMenu && (
-                            <div className="dropdown-menu glass-dropdown">
-                                <div className="dropdown-header">Sort By</div>
+                            <div className="dropdown-menu" role="menu">
+                                <div className="dropdown-header">Sort by</div>
                                 {SORT_OPTIONS.map((opt) => (
                                     <button
                                         key={opt.id}
+                                        role="menuitemradio"
+                                        aria-checked={sortBy === opt.id}
                                         className={`dropdown-item ${sortBy === opt.id ? 'active' : ''}`}
                                         onClick={() => toggleSort(opt.id)}
                                     >
                                         <span>{opt.label}</span>
-                                        {sortBy === opt.id && <span className="sort-arrow">{sortOrder === 'asc' ? '▲' : '▼'}</span>}
+                                        {sortBy === opt.id && <span className="sort-arrow">{sortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>}
                                     </button>
                                 ))}
                             </div>
@@ -751,53 +730,54 @@ function FileExplorer({
 
                     <div className="dropdown-wrapper">
                         <button
-                            className={`toolbar-btn ${groupBy !== 'none' ? 'active' : ''}`}
+                            className={`icon-btn ${groupBy !== 'none' || showGroupMenu ? 'active' : ''}`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setShowGroupMenu(!showGroupMenu);
                                 setShowSortMenu(false);
                                 setShowSizeMenu(false);
                             }}
-                            title="Group by" aria-label="Group by"
+                            title="Group by"
+                            aria-label="Group by"
+                            aria-haspopup="menu"
+                            aria-expanded={showGroupMenu}
                         >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M4 6h16M4 12h16M4 18h16" />
-                                <rect x="4" y="6" width="4" height="4" fill="currentColor" fillOpacity="0.2" />
-                                <rect x="4" y="12" width="4" height="4" fill="currentColor" fillOpacity="0.2" />
-                            </svg>
+                            <LineIcon name="group" />
                         </button>
                         {showGroupMenu && (
-                            <div className="dropdown-menu glass-dropdown">
-                                <div className="dropdown-header">Group By</div>
+                            <div className="dropdown-menu" role="menu">
+                                <div className="dropdown-header">Group by</div>
                                 {GROUP_OPTIONS.map((opt) => (
                                     <button
                                         key={opt.id}
+                                        role="menuitemradio"
+                                        aria-checked={groupBy === opt.id}
                                         className={`dropdown-item ${groupBy === opt.id ? 'active' : ''}`}
                                         onClick={() => { setGroupBy(opt.id); setShowGroupMenu(false); }}
                                     >
                                         <span>{opt.label}</span>
+                                        {groupBy === opt.id && <LineIcon name="check" size={14} strokeWidth={2.2} />}
                                     </button>
                                 ))}
                             </div>
                         )}
                     </div>
 
-                    {/* Thumbnail Size (Grid Only) */}
                     {viewMode === 'grid' && (
                         <div className="dropdown-wrapper" onClick={(e) => e.stopPropagation()}>
                             <button
-                                className={`toolbar-btn ${showSizeMenu ? 'active' : ''}`}
+                                className={`icon-btn ${showSizeMenu ? 'active' : ''}`}
                                 onClick={() => { setShowSizeMenu(!showSizeMenu); setShowSortMenu(false); setShowGroupMenu(false); }}
-                                title="Thumbnail size" aria-label="Thumbnail size"
+                                title="Icon size"
+                                aria-label="Icon size"
+                                aria-haspopup="dialog"
+                                aria-expanded={showSizeMenu}
                             >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <rect x="2" y="7" width="20" height="10" rx="2" />
-                                    <circle cx="12" cy="12" r="3" />
-                                </svg>
+                                <LineIcon name="size" />
                             </button>
                             {showSizeMenu && (
-                                <div className="dropdown-menu glass-dropdown size-dropdown">
-                                    <div className="dropdown-header">Thumbnail Size</div>
+                                <div className="dropdown-menu size-dropdown">
+                                    <div className="dropdown-header">Icon size</div>
                                     <div className="size-slider-container">
                                         <input
                                             type="range"
@@ -806,122 +786,148 @@ function FileExplorer({
                                             value={thumbnailSize}
                                             onChange={(e) => setThumbnailSize(Number(e.target.value))}
                                             className="size-slider"
-                                            aria-label="Thumbnail size"
+                                            aria-label="Icon size"
                                         />
                                         <span className="size-label">{thumbnailSize}px</span>
                                     </div>
                                     <div className="size-presets">
-                                        <button onClick={() => setThumbnailSize(48)}>S</button>
-                                        <button onClick={() => setThumbnailSize(80)}>M</button>
-                                        <button onClick={() => setThumbnailSize(120)}>L</button>
-                                        <button onClick={() => setThumbnailSize(160)}>XL</button>
-                                        <button onClick={() => setThumbnailSize(256)}>XXL</button>
+                                        {[['S', 56], ['M', 96], ['L', 128], ['XL', 176], ['XXL', 256]].map(([label, value]) => (
+                                            <button
+                                                key={label}
+                                                className={thumbnailSize === value ? 'active' : ''}
+                                                onClick={() => setThumbnailSize(value)}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
                             )}
                         </div>
                     )}
-                </div>
-            </div>
 
-            {/* Search Header */}
-            {searchQuery && (
-                <div className="search-header">
-                    <h2>Search Results</h2>
-                    <span className="search-meta">
-                        Found {processedItems.length} result{processedItems.length !== 1 ? 's' : ''} for "{searchQuery}"
-                    </span>
+                    <button
+                        className={`icon-btn ${showHidden ? 'active' : ''}`}
+                        onClick={() => setShowHidden(!showHidden)}
+                        title={showHidden ? 'Hide hidden files' : 'Show hidden files'}
+                        aria-label={showHidden ? 'Hide hidden files' : 'Show hidden files'}
+                        aria-pressed={showHidden}
+                    >
+                        <LineIcon name={showHidden ? 'eye' : 'eyeOff'} />
+                    </button>
                 </div>
-            )}
 
-            {/* Content */}
-            <div
-                className="explorer-content"
-                ref={contentRef}
-                onContextMenu={handleBackgroundContextMenu}
-                onMouseDown={handleMouseDown}
-            >
-                {selectionBox && (
+                {headerEnd}
+            </header>
+
+            <div className="explorer-body">
+                <section className="explorer-pane" aria-label="Files">
+                    {!isThisPC && !loading && !error && (
+                        <div className="pane-title">
+                            <h1 className="truncate">{searchQuery ? 'Search results' : folderTitle}</h1>
+                            <span className="pane-meta">
+                                {searchQuery
+                                    ? `${processedItems.length} result${processedItems.length !== 1 ? 's' : ''} for “${searchQuery}”`
+                                    : `Sorted by ${sortLabel}${groupBy !== 'none' ? ` · Grouped by ${groupLabel}` : ''}`}
+                            </span>
+                        </div>
+                    )}
+
                     <div
-                        className="selection-box"
-                        style={{
-                            left: selectionBox.left,
-                            top: selectionBox.top,
-                            width: selectionBox.width,
-                            height: selectionBox.height,
-                        }}
-                    />
-                )}
+                        className="explorer-content"
+                        ref={contentRef}
+                        onContextMenu={handleBackgroundContextMenu}
+                        onMouseDown={handleMouseDown}
+                    >
+                        {selectionBox && (
+                            <div
+                                className="selection-box"
+                                style={{
+                                    left: selectionBox.left,
+                                    top: selectionBox.top,
+                                    width: selectionBox.width,
+                                    height: selectionBox.height,
+                                }}
+                            />
+                        )}
 
-                {loading ? (
-                    <div className="explorer-loading">
-                        <div className="spinner"></div>
-                        <span>Loading...</span>
+                        {loading ? (
+                            <div className="explorer-state">
+                                <div className="spinner"></div>
+                                <span>Loading…</span>
+                            </div>
+                        ) : error ? (
+                            <div className="explorer-state" role="alert">
+                                <span className="state-icon danger"><LineIcon name="alert" size={28} /></span>
+                                <h3>Unable to open this folder</h3>
+                                <p>{error}</p>
+                                <button className="btn btn-secondary" onClick={() => onRefresh?.()}>Try again</button>
+                            </div>
+                        ) : isThisPC ? (
+                            <ThisPC
+                                items={items}
+                                cloudDrives={cloudDrives}
+                                onNavigate={onNavigate}
+                                viewMode={viewMode}
+                                onShowContextMenu={onShowContextMenu}
+                                onShowProperties={onShowProperties}
+                                onRefresh={() => onRefresh?.()}
+                                onAddCloudDrive={onAddCloudDrive}
+                                specialFolders={specialFolders}
+                            />
+                        ) : processedItems.length === 0 ? (
+                            <div className="explorer-state">
+                                <span className="state-icon"><LineIcon name={searchQuery ? 'search' : 'folder'} size={28} /></span>
+                                <h3>{searchQuery ? 'No matching items' : 'This folder is empty'}</h3>
+                                <p>{searchQuery ? 'Try a different search term' : 'Right-click to create a new file or folder'}</p>
+                            </div>
+                        ) : groupBy === 'none' ? (
+                            renderFileItems(processedItems)
+                        ) : (
+                            <div className="grouped-view">
+                                {Object.entries(groupedItems).map(([groupName, groupItems]) => (
+                                    groupItems.length > 0 && (
+                                        <div key={groupName} className="file-group">
+                                            <div className="group-header">
+                                                <span className="group-name">{groupName}</span>
+                                                <span className="group-count">{groupItems.length}</span>
+                                            </div>
+                                            <div className="group-content">
+                                                {renderFileItems(groupItems)}
+                                            </div>
+                                        </div>
+                                    )
+                                ))}
+                            </div>
+                        )}
                     </div>
-                ) : error ? (
-                    <div className="explorer-error" role="alert">
-                        <span className="error-icon">⚠️</span>
-                        <h3>Unable to access folder</h3>
-                        <p>{error}</p>
-                        <button className="retry-btn" onClick={() => onRefresh?.()}>Try Again</button>
-                    </div>
-                ) : isThisPC ? (
-                    <ThisPC
-                        items={items}
-                        cloudDrives={cloudDrives}
-                        onNavigate={onNavigate}
-                        viewMode={viewMode}
-                        onShowContextMenu={onShowContextMenu}
-                        onShowProperties={onShowProperties}
-                        onRefresh={() => onRefresh?.()}
-                        specialFolders={specialFolders}
-                    />
-                ) : processedItems.length === 0 ? (
-                    <div className="explorer-empty">
-                        <span className="empty-icon">📂</span>
-                        <h3>{searchQuery ? 'No matching items' : 'This folder is empty'}</h3>
-                        <p>{searchQuery ? 'Try a different search term' : 'There are no files or folders to display'}</p>
-                    </div>
-                ) : groupBy === 'none' ? (
-                    renderFileItems(processedItems)
-                ) : (
-                    <div className="grouped-view">
-                        {Object.entries(groupedItems).map(([groupName, groupItems]) => (
-                            groupItems.length > 0 && (
-                                <div key={groupName} className="file-group">
-                                    <div className="group-header">
-                                        <span className="group-name">{groupName}</span>
-                                        <span className="group-count">{groupItems.length}</span>
-                                    </div>
-                                    <div className="group-content">
-                                        {renderFileItems(groupItems)}
-                                    </div>
-                                </div>
-                            )
-                        ))}
-                    </div>
-                )}
-            </div>
 
-            {/* Status Bar */}
-            <div className="explorer-statusbar">
-                <span>{processedItems.length} items</span>
-                {selectedItems.length > 1 && (
-                    <span className="selection-status">{selectedItems.length} selected</span>
-                )}
-                {clipboardStatus?.count > 0 && (
-                    <span className="clipboard-status">
-                        {clipboardStatus.action === 'cut' ? '✂️' : '📋'} {clipboardStatus.count} item(s)
-                    </span>
-                )}
+                    {!isThisPC && (
+                        <footer className="explorer-statusbar">
+                            <span>{processedItems.length} item{processedItems.length !== 1 ? 's' : ''}</span>
+                            {selectedItems.length > 0 && (
+                                <span className="selection-status">
+                                    {selectedItems.length} selected{selectedSize > 0 ? ` · ${formatFileSize(selectedSize)}` : ''}
+                                </span>
+                            )}
+                            {clipboardStatus?.count > 0 && (
+                                <span className="clipboard-status">
+                                    {clipboardStatus.count} {clipboardStatus.action === 'cut' ? 'to move' : 'on clipboard'}
+                                </span>
+                            )}
+                        </footer>
+                    )}
+                </section>
+
+                {preview}
             </div>
 
             {/* Rename Dialog */}
             {renameItem && (
-                <div className="rename-overlay" onClick={cancelRename}>
+                <div className="overlay" onClick={cancelRename}>
                     <form
                         ref={renameDialogRef}
-                        className="rename-dialog card"
+                        className="rename-dialog dialog"
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="rename-dialog-title"
@@ -939,8 +945,8 @@ function FileExplorer({
                             aria-label="New name"
                         />
                         <div className="rename-actions">
-                            <button type="button" className="rename-btn cancel" onClick={cancelRename}>Cancel</button>
-                            <button type="submit" className="rename-btn confirm">Rename</button>
+                            <button type="button" className="btn btn-secondary" onClick={cancelRename}>Cancel</button>
+                            <button type="submit" className="btn btn-primary">Rename</button>
                         </div>
                     </form>
                 </div>

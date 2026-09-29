@@ -19,6 +19,7 @@ const {
     withTimeout,
 } = require('./utils.cjs');
 
+const APP_ICON = path.join(__dirname, 'assets', 'icon.png');
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5174';
 // TULIP_LOAD_DIST=1 runs the built renderer from an unpackaged checkout (used for smoke tests)
 const isDev = process.env.NODE_ENV === 'development' || (!app.isPackaged && process.env.TULIP_LOAD_DIST !== '1');
@@ -162,12 +163,16 @@ function runFfmpegFrame(filePath, size, outPath) {
     });
 }
 
+// Formats that may carry transparency keep it as PNG; JPEG would paint it black
+const ALPHA_EXTS = ['.png', '.gif', '.webp', '.ico', '.svg', '.tiff', '.tif'];
+const encodeThumb = (image, ext) => (ALPHA_EXTS.includes(ext) ? image.toPNG() : image.toJPEG(80));
+
 async function generateThumbnail(filePath, ext, size, cachePath) {
     // Windows/macOS: OS thumbnailer handles images and videos off the main thread
     if (process.platform === 'win32' || process.platform === 'darwin') {
         const image = await nativeImage.createThumbnailFromPath(filePath, { width: size, height: size });
         if (image.isEmpty()) throw new Error('Failed to load image');
-        return image.toJPEG(80);
+        return encodeThumb(image, ext);
     }
 
     if (VIDEO_EXTS.includes(ext)) {
@@ -182,7 +187,7 @@ async function generateThumbnail(filePath, ext, size, cachePath) {
         const resized = height > size || width > size
             ? image.resize(width >= height ? { width: size, quality: 'good' } : { height: size, quality: 'good' })
             : image;
-        return resized.toJPEG(80);
+        return encodeThumb(resized, ext);
     });
 }
 
@@ -208,7 +213,8 @@ function createWindow() {
             sandbox: true,
             webSecurity: true,
         },
-        icon: path.join(__dirname, '../build/icons/512x512.png'),
+        // Bundled with the app (build/ is not packaged), used for the window and taskbar
+        icon: APP_ICON,
     });
 
     if (isDev) {
@@ -329,17 +335,18 @@ handle('fs:get-thumbnail', async (filePath, requestedSize = 256) => {
     }
 
     const cacheKey = `${filePath}|${stats.mtimeMs}|${stats.size}|${size}`;
-    const cachePath = path.join(THUMBNAIL_CACHE_DIR, `${crypto.createHash('sha1').update(cacheKey).digest('hex')}.jpg`);
+    const format = ALPHA_EXTS.includes(ext) ? 'png' : 'jpeg';
+    const cachePath = path.join(THUMBNAIL_CACHE_DIR, `${crypto.createHash('sha1').update(cacheKey).digest('hex')}.${format === 'png' ? 'png' : 'jpg'}`);
 
     try {
         const cached = await fs.readFile(cachePath);
-        return { success: true, data: `data:image/jpeg;base64,${cached.toString('base64')}`, cached: true };
+        return { success: true, data: `data:image/${format};base64,${cached.toString('base64')}`, cached: true };
     } catch { /* cache miss */ }
 
     await ensureThumbnailCacheDir();
     const buffer = await generateThumbnail(filePath, ext, size, cachePath);
     await fs.writeFile(cachePath, buffer).catch((e) => console.error('Failed to write thumbnail cache:', e.message));
-    return { success: true, data: `data:image/jpeg;base64,${buffer.toString('base64')}`, cached: false };
+    return { success: true, data: `data:image/${format};base64,${buffer.toString('base64')}`, cached: false };
 });
 
 handle('fs:get-image-metadata', async (filePath) => {
@@ -432,7 +439,7 @@ ipcMain.handle('fs:confirm-delete', async (_event, names, isFolder) => {
             ? `Move these ${count} items to the Trash?`
             : `Move this ${isFolder ? 'folder' : 'file'} to the Trash?`,
         detail: shown,
-        icon: path.join(__dirname, '../build/icon.png'),
+        icon: APP_ICON,
     });
     return response.response === 1;
 });

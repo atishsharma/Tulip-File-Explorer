@@ -1,42 +1,71 @@
 .toasts {
     position: fixed;
-    right: 16px;
-    bottom: 40px;
+    right: 20px;
+    bottom: 48px;
+    z-index: 2000;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    z-index: 2000;
-    max-width: min(420px, calc(100vw - 32px));
+    max-width: min(420px, calc(100vw - 40px));
 }
 
 .toast {
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: var(--bg-solid);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--primary);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    padding: 10px 10px 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--menu);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--edge);
+    box-shadow: var(--shadow-pop);
+    color: var(--text);
     font-size: 13px;
     white-space: pre-line;
+    animation: slideUp var(--transition-normal);
 }
 
-.toast-error { border-left-color: var(--error); }
-.toast-success { border-left-color: var(--success, #22c55e); }
+.toast-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+}
 
-.toast-message { flex: 1; overflow-wrap: anywhere; }
+.toast-success .toast-icon {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.toast-error .toast-icon {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.toast-message {
+    flex: 1;
+    padding-top: 2px;
+    overflow-wrap: anywhere;
+}
 
 .toast-close {
-    background: none;
-    border: none;
-    color: inherit;
-    opacity: 0.6;
-    cursor: pointer;
-    font-size: 12px;
-    padding: 2px;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-3);
 }
 
-.toast-close:hover { opacity: 1; }
+.toast-close:hover {
+    background: var(--fill-hover);
+    color: var(--text);
+}
