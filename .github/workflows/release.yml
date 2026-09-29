@@ -2,16 +2,24 @@ name: Release
 
 # Builds installers for Windows, macOS and Linux and uploads them to a draft GitHub release.
 # Start it by pushing a tag like v1.5.0, or run it manually from the Actions tab.
+# Run manually with mode=publish to attach docs/release-notes/v<version>.md and publish the draft.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      mode:
+        description: 'build = package and upload to draft; publish = add release notes and publish the draft'
+        type: choice
+        options: [build, publish]
+        default: build
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: github.event_name == 'push' || inputs.mode == 'build'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -48,3 +56,30 @@ jobs:
             release/*.AppImage
             release/*.tar.gz
           if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish draft release with notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v${version}"
+          notes="docs/release-notes/${tag}.md"
+          test -f "$notes" || { echo "Missing $notes"; exit 1; }
+          # Refuse to publish a release that is missing a platform
+          assets=$(gh release view "$tag" --json assets --jq '.assets[].name')
+          echo "$assets"
+          for pattern in 'win-x64.zip' 'mac-arm64.zip' 'mac-x64.zip' 'linux-amd64.deb' 'linux-x86_64.AppImage' 'linux-x64.tar.gz'; do
+            echo "$assets" | grep -q -- "$pattern" || { echo "Missing asset: $pattern"; exit 1; }
+          done
+          gh release edit "$tag" \
+            --title "Tulip File Explorer ${version}" \
+            --notes-file "$notes" \
+            --target main \
+            --draft=false \
+            --latest
+          gh release view "$tag" --json url,isDraft,tagName
