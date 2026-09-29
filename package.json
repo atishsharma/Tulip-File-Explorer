@@ -1,7 +1,7 @@
 {
   "name": "tulip-file-explorer",
   "private": true,
-  "version": "1.5.0",
+  "version": "1.6.1",
   "description": "A modern cross-platform file explorer with glass effect UI",
   "author": "Atish Ak Sharma <atishaksharma@gmail.com> (https://atishakasharma.com/)",
   "type": "module",
@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check": "npm run lint && npm run test && npm run build",
-    "dist": "vite build && electron-builder --win --mac --linux"
+    "dist": "vite build && electron-builder --win --mac --linux",
+    "icons": "electron scripts/generate-icons.cjs"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@fontsource-variable/figtree": "^5.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
     "electron": "^44.4.5",
@@ -54,7 +56,7 @@
       "output": "release"
     },
     "mac": {
-      "icon": "build/icons/512x512.png",
+      "icon": "build/icon.png",
       "target": {
         "target": "zip",
         "arch": [
@@ -64,7 +66,7 @@
       }
     },
     "win": {
-      "icon": "build/icons/icon.ico",
+      "icon": "build/icon.ico",
       "target": {
         "target": "zip",
         "arch": [
@@ -74,7 +76,7 @@
       }
     },
     "linux": {
-      "icon": "build/icons/512x512.png",
+      "icon": "build/icons",
       "target": [
         {
           "target": "deb",
@@ -96,7 +98,37 @@
         }
       ],
       "category": "Utility",
-      "syncDesktopName": true
+      "syncDesktopName": true,
+      "extraFiles": [
+        {
+          "from": "build/linux",
+          "to": ".",
+          "filter": [
+            "*.sh"
+          ]
+        },
+        {
+          "from": "build/icons",
+          "to": "icons",
+          "filter": [
+            "16x16.png",
+            "32x32.png",
+            "48x48.png",
+            "64x64.png",
+            "128x128.png",
+            "256x256.png",
+            "512x512.png"
+          ]
+        }
+      ],
+      "desktop": {
+        "entry": {
+          "Name": "Tulip File Explorer",
+          "Comment": "A modern cross-platform file explorer",
+          "Categories": "Utility;FileManager;System;",
+          "StartupWMClass": "tulip-file-explorer"
+        }
+      }
     },
     "publish": [
       {

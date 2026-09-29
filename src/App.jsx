@@ -13,7 +13,9 @@ import { useToasts } from './hooks/useToasts';
 import { readStorage, writeStorage } from './utils/storage';
 import './App.css';
 
-const COLORS = ['blue', 'purple', 'pink', 'red', 'orange', 'green', 'teal', 'indigo'];
+const COLORS = ['rose', 'blue', 'purple', 'red', 'orange', 'green', 'teal', 'graphite'];
+// Accent ids from 1.5 and earlier
+const LEGACY_COLORS = { pink: 'rose', indigo: 'purple' };
 
 function App() {
   const { theme, setTheme } = useTheme();
@@ -28,9 +30,11 @@ function App() {
   const [clipboardStatus, setClipboardStatus] = useState(null);
   const [appVersion, setAppVersion] = useState('');
   const [primaryColor, setPrimaryColor] = useState(() => {
-    const saved = readStorage('tulip-color', 'blue');
-    return COLORS.includes(saved) ? saved : 'blue';
+    const saved = readStorage('tulip-color', 'rose');
+    const mapped = LEGACY_COLORS[saved] || saved;
+    return COLORS.includes(mapped) ? mapped : 'rose';
   });
+  const [glass, setGlass] = useState(() => readStorage('tulip-glass', true) !== false);
 
   const {
     currentPath,
@@ -62,6 +66,11 @@ function App() {
     document.documentElement.setAttribute('data-color', primaryColor);
     writeStorage('tulip-color', primaryColor);
   }, [primaryColor]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-glass', glass ? 'on' : 'off');
+    writeStorage('tulip-glass', glass);
+  }, [glass]);
 
   // Search state, cleared whenever the folder changes
   const [searchQuery, setSearchQuery] = useState('');
@@ -132,13 +141,9 @@ function App() {
   const modalOpen = showSettings || showProperties || showRcloneModal;
 
   return (
-    <div className="app" data-theme={theme} data-color={primaryColor}>
-      <TitleBar
-        showPreview={showPreview}
-        onTogglePreview={() => setShowPreview((prev) => !prev)}
-        onOpenSettings={() => setShowSettings(true)}
-      />
-      <div className="app-content">
+    <div className="app" data-color={primaryColor}>
+      <div className="app-wallpaper" aria-hidden="true" />
+      <div className="app-window">
         <Sidebar
           specialFolders={specialFolders}
           drives={drives}
@@ -148,38 +153,46 @@ function App() {
           onShowContextMenu={handleContextMenuAction}
           onAddCloudDrive={() => setShowRcloneModal(true)}
         />
-        <FileExplorer
-          currentPath={currentPath}
-          items={items}
-          searchQuery={searchQuery}
-          onSearch={setSearchQuery}
-          specialFolders={specialFolders}
-          cloudDrives={cloudDrives}
-          loading={loading}
-          error={error}
-          onNavigate={navigateTo}
-          onNavigateBack={navigateBack}
-          onNavigateForward={navigateForward}
-          onNavigateUp={navigateUp}
-          canGoBack={canGoBack}
-          canGoForward={canGoForward}
-          canGoUp={canGoUp}
-          onOpenFile={openFile}
-          onPaste={pasteFromClipboard}
-          onRefresh={refresh}
-          onDeleteItems={deleteItems}
-          onRenameItem={renameItem}
-          onCreateFolder={createFolder}
-          onCreateFile={createFile}
-          onShowContextMenu={handleContextMenuAction}
-          onSelectItem={setSelectedItem}
-          onShowProperties={handleShowProperties}
-          clipboardStatus={clipboardStatus}
-          shortcutsEnabled={!modalOpen}
-        />
-        {showPreview && (
-          <PreviewPanel item={selectedItem} />
-        )}
+        <div className="app-main">
+          <FileExplorer
+            currentPath={currentPath}
+            items={items}
+            searchQuery={searchQuery}
+            onSearch={setSearchQuery}
+            specialFolders={specialFolders}
+            cloudDrives={cloudDrives}
+            loading={loading}
+            error={error}
+            onNavigate={navigateTo}
+            onNavigateBack={navigateBack}
+            onNavigateForward={navigateForward}
+            onNavigateUp={navigateUp}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
+            canGoUp={canGoUp}
+            onOpenFile={openFile}
+            onPaste={pasteFromClipboard}
+            onRefresh={refresh}
+            onDeleteItems={deleteItems}
+            onRenameItem={renameItem}
+            onCreateFolder={createFolder}
+            onCreateFile={createFile}
+            onShowContextMenu={handleContextMenuAction}
+            onSelectItem={setSelectedItem}
+            onShowProperties={handleShowProperties}
+            clipboardStatus={clipboardStatus}
+            shortcutsEnabled={!modalOpen}
+            onAddCloudDrive={() => setShowRcloneModal(true)}
+            headerEnd={(
+              <TitleBar
+                showPreview={showPreview}
+                onTogglePreview={() => setShowPreview((prev) => !prev)}
+                onOpenSettings={() => setShowSettings(true)}
+              />
+            )}
+            preview={showPreview ? <PreviewPanel item={selectedItem} /> : null}
+          />
+        </div>
       </div>
 
       <SettingsModal
@@ -189,6 +202,10 @@ function App() {
         onColorChange={setPrimaryColor}
         theme={theme}
         onThemeChange={setTheme}
+        glass={glass}
+        onGlassChange={setGlass}
+        showPreview={showPreview}
+        onShowPreviewChange={setShowPreview}
         version={appVersion}
       />
 

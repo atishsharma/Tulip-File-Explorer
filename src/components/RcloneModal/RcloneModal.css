@@ -1,234 +1,192 @@
-.rclone-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 2000;
-}
-
 .rclone-modal {
-    background: var(--surface);
-    /* Ensure solid background for readability */
-    background-color: var(--surface);
-    width: 400px;
-    max-width: 90vw;
-    border-radius: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-    border: 1px solid var(--glass-border);
+    width: 480px;
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 48px);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-}
-
-/* Ensure modal content is opaque if surface is transparent-ish */
-[data-theme="dark"] .rclone-modal {
-    background: #1e1e1e;
-}
-
-[data-theme="light"] .rclone-modal {
-    background: #ffffff;
-}
-
-.rclone-header {
-    padding: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--glass-border);
-}
-
-.rclone-header h2 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-}
-
-.rclone-close {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    color: var(--text-primary);
-}
-
-.rclone-close:hover {
-    background: rgba(128, 128, 128, 0.1);
 }
 
 .rclone-content {
-    padding: 16px;
-    max-height: 400px;
+    flex: 1;
+    min-height: 160px;
     overflow-y: auto;
+    padding: 14px 16px;
+}
+
+.rclone-loading {
+    padding: 40px 0;
+    text-align: center;
+    color: var(--text-2);
 }
 
 .rclone-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .rclone-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 12px;
-    background: rgba(128, 128, 128, 0.05);
-    border-radius: 8px;
-    transition: background 0.2s;
-}
-
-.rclone-item:hover {
-    background: rgba(128, 128, 128, 0.1);
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 10px 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--fill);
 }
 
 .rclone-item-info {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex: 1;
+    gap: 12px;
+    min-width: 0;
+}
+
+.rclone-icon,
+.rclone-icon-img {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 10px;
+}
+
+.rclone-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--badge-doc-bg);
+    color: var(--badge-doc-fg);
+}
+
+.rclone-icon-img {
+    object-fit: contain;
+    padding: 6px;
+    background: var(--control);
 }
 
 .rclone-item-details {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    min-width: 0;
 }
 
 .rclone-item-name {
-    font-weight: 500;
-    font-size: 0.95rem;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .rclone-item-type {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    opacity: 0.8;
-}
-
-.rclone-icon {
-    font-size: 1.2rem;
-}
-
-.rclone-icon-img {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-}
-
-.rclone-footer {
-    padding: 12px 16px;
-    border-top: 1px solid var(--glass-border);
-    background: rgba(128, 128, 128, 0.03);
-}
-
-.rclone-config-btn {
-    width: 100%;
-    padding: 10px 16px;
-    background: rgba(128, 128, 128, 0.08);
-    border: 1px solid var(--glass-border);
-    border-radius: 8px;
-    color: var(--text-primary);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.rclone-config-btn:hover {
-    background: rgba(128, 128, 128, 0.12);
-    transform: translateY(-1px);
-}
-
-.rclone-config-icon {
-    font-size: 1.1rem;
-}
-
-.rclone-empty {
-    text-align: center;
-    padding: 40px 20px;
-}
-
-.rclone-empty-icon {
-    font-size: 4rem;
-    margin-bottom: 16px;
-    opacity: 0.5;
-}
-
-.rclone-empty-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0 0 8px 0;
-    color: var(--text-primary);
-}
-
-.rclone-empty-message {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-3);
 }
 
 .rclone-action-btn {
-    padding: 6px 12px;
-    border-radius: 6px;
-    border: none;
-    font-size: 0.9rem;
-    cursor: pointer;
-    font-weight: 500;
-    transition: all 0.2s;
+    flex-shrink: 0;
+    min-width: 88px;
+    height: 34px;
+    padding: 0 14px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: var(--font-weight-semibold);
+    transition: background var(--transition-fast);
 }
 
 .rclone-action-btn.mount {
-    background: var(--primary);
-    color: white;
+    background: var(--accent);
+    color: var(--on-accent);
 }
 
-.rclone-action-btn.mount:hover {
-    opacity: 0.9;
+.rclone-action-btn.mount:hover:not(:disabled) {
+    background: var(--accent-hover);
 }
 
 .rclone-action-btn.unmount {
-    background: rgba(220, 38, 38, 0.1);
-    color: #dc2626;
+    background: var(--control);
+    color: var(--text);
+    border: 1px solid var(--line-strong);
 }
 
-.rclone-action-btn.unmount:hover {
-    background: rgba(220, 38, 38, 0.2);
+.rclone-action-btn.unmount:hover:not(:disabled) {
+    background: var(--danger-soft);
+    color: var(--danger);
 }
 
 .rclone-action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    opacity: 0.7;
 }
 
-.rclone-loading,
+.rclone-empty,
 .rclone-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 28px 12px;
     text-align: center;
-    padding: 20px;
-    color: var(--text-secondary);
+    color: var(--text-2);
 }
 
-.rclone-error {
-    color: #dc2626;
+.rclone-empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--fill);
+    color: var(--text-2);
 }
+
+.rclone-empty-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--text);
+}
+
+.rclone-empty-message {
+    max-width: 320px;
+    font-size: 13px;
+}
+
+.rclone-error p:first-child {
+    font-weight: var(--font-weight-semibold);
+    color: var(--danger);
+}
+
 .rclone-link {
     background: none;
     border: none;
     padding: 0;
-    color: var(--primary);
+    color: var(--accent-text);
     text-decoration: underline;
     cursor: pointer;
     font: inherit;
+}
+
+.rclone-footer {
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--line);
+}
+
+.rclone-config-btn {
+    width: 100%;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: var(--radius-md);
+    background: var(--fill);
+    color: var(--text);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
+}
+
+.rclone-config-btn:hover:not(:disabled) {
+    background: var(--fill-hover);
 }
 
 .rclone-config-btn:disabled {

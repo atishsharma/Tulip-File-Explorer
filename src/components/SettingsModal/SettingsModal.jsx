@@ -1,159 +1,184 @@
-import { useModal } from '../../hooks/useModal';
 import logo from '../../assets/logo1.png';
+import { useModal } from '../../hooks/useModal';
+import { LineIcon } from '../../utils/fileIcons';
 import './SettingsModal.css';
 
 const COLOR_PRESETS = [
-    { id: 'blue', name: 'Ocean Blue', hue: 207, preview: '#0078d4' },
-    { id: 'purple', name: 'Royal Purple', hue: 270, preview: '#8b5cf6' },
-    { id: 'pink', name: 'Rose Pink', hue: 330, preview: '#ec4899' },
-    { id: 'red', name: 'Crimson Red', hue: 0, preview: '#dc2626' },
-    { id: 'orange', name: 'Sunset Orange', hue: 25, preview: '#f97316' },
-    { id: 'green', name: 'Forest Green', hue: 145, preview: '#22c55e' },
-    { id: 'teal', name: 'Ocean Teal', hue: 175, preview: '#14b8a6' },
-    { id: 'indigo', name: 'Deep Indigo', hue: 235, preview: '#6366f1' },
+    { id: 'rose', name: 'Tulip Rose', preview: '#C93A64' },
+    { id: 'blue', name: 'Ocean Blue', preview: '#2F6FC4' },
+    { id: 'purple', name: 'Royal Purple', preview: '#7A4BD6' },
+    { id: 'red', name: 'Crimson', preview: '#C22E2E' },
+    { id: 'orange', name: 'Sunset', preview: '#B85418' },
+    { id: 'green', name: 'Forest', preview: '#2A7D4D' },
+    { id: 'teal', name: 'Teal', preview: '#1F7F80' },
+    { id: 'graphite', name: 'Graphite', preview: '#4A4F5C' },
 ];
 
-function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, onThemeChange, version }) {
+const THEMES = [
+    { id: 'light', label: 'Light' },
+    { id: 'dark', label: 'Dark' },
+    { id: 'auto', label: 'Match system' },
+];
+
+function ThemePreview({ id }) {
+    if (id === 'auto') {
+        return (
+            <span className="theme-preview split" aria-hidden="true">
+                <span className="theme-half light" />
+                <span className="theme-half dark" />
+            </span>
+        );
+    }
+    return (
+        <span className={`theme-preview ${id}`} aria-hidden="true">
+            <span className="theme-preview-sidebar" />
+            <span className="theme-preview-body">
+                <span className="theme-preview-line" />
+                <span className="theme-preview-line accent" />
+            </span>
+        </span>
+    );
+}
+
+function SettingsModal({
+    isOpen,
+    onClose,
+    currentColor,
+    onColorChange,
+    theme,
+    onThemeChange,
+    glass = true,
+    onGlassChange,
+    showPreview = false,
+    onShowPreviewChange,
+    version,
+}) {
     const dialogRef = useModal(isOpen, onClose);
     if (!isOpen) return null;
 
+    const currentName = COLOR_PRESETS.find((c) => c.id === currentColor)?.name;
+
     return (
-        <div className="settings-overlay" onClick={onClose}>
+        <div className="overlay" onClick={onClose}>
             <div
                 ref={dialogRef}
-                className="settings-modal card scale-in"
+                className="settings-modal dialog"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="settings-title"
                 onClick={(e) => e.stopPropagation()}
             >
-                <header className="settings-header">
-                    <h2 id="settings-title">Settings</h2>
-                    <button className="settings-close" onClick={onClose} aria-label="Close">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
+                <header className="dialog-header">
+                    <h2 id="settings-title" className="dialog-title">Settings</h2>
+                    <button className="dialog-close" onClick={onClose} aria-label="Close settings">
+                        <LineIcon name="close" size={14} strokeWidth={2.2} />
                     </button>
                 </header>
 
-                <div className="settings-content">
-                    {/* Left Column - Settings */}
-                    <div className="settings-column settings-left">
-                        {/* Theme Section */}
+                <div className="settings-body">
+                    <div className="settings-main">
                         <section className="settings-section">
-                            <h3 className="settings-section-title">Appearance</h3>
-                            <div className="theme-toggle-group">
-                                <button
-                                    className={`theme-option ${theme === 'light' ? 'active' : ''}`}
-                                    aria-pressed={theme === 'light'}
-                                    onClick={() => onThemeChange('light')}
-                                >
-                                    <span className="theme-icon">☀️</span>
-                                    <span className="theme-label">Light</span>
-                                </button>
-                                <button
-                                    className={`theme-option ${theme === 'dark' ? 'active' : ''}`}
-                                    aria-pressed={theme === 'dark'}
-                                    onClick={() => onThemeChange('dark')}
-                                >
-                                    <span className="theme-icon">🌙</span>
-                                    <span className="theme-label">Dark</span>
-                                </button>
-                                <button
-                                    className={`theme-option ${theme === 'auto' ? 'active' : ''}`}
-                                    aria-pressed={theme === 'auto'}
-                                    onClick={() => onThemeChange('auto')}
-                                >
-                                    <span className="theme-icon">🖥️</span>
-                                    <span className="theme-label">Auto</span>
-                                </button>
-                            </div>
-                        </section>
-
-                        {/* Color Section */}
-                        <section className="settings-section">
-                            <h3 className="settings-section-title">Accent Color</h3>
-                            <p className="settings-section-desc">
-                                Choose a primary color to personalize your experience
-                            </p>
-                            <div className="color-grid">
-                                {COLOR_PRESETS.map((color) => (
+                            <h3 className="eyebrow">Appearance</h3>
+                            <div className="theme-options" role="radiogroup" aria-label="Theme">
+                                {THEMES.map((t) => (
                                     <button
-                                        key={color.id}
-                                        className={`color-option ${currentColor === color.id ? 'active' : ''}`}
-                                        aria-pressed={currentColor === color.id}
-                                        onClick={() => onColorChange(color.id)}
-                                        title={color.name}
+                                        key={t.id}
+                                        role="radio"
+                                        aria-checked={theme === t.id}
+                                        className={`theme-option ${theme === t.id ? 'active' : ''}`}
+                                        onClick={() => onThemeChange(t.id)}
                                     >
-                                        <span
-                                            className="color-swatch"
-                                            style={{ backgroundColor: color.preview }}
-                                        />
-                                        <span className="color-name">{color.name}</span>
-                                        {currentColor === color.id && (
-                                            <span className="color-check">
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                                    <path d="M20 6L9 17l-5-5" />
-                                                </svg>
-                                            </span>
-                                        )}
+                                        <ThemePreview id={t.id} />
+                                        <span className="theme-label">{t.label}</span>
                                     </button>
                                 ))}
                             </div>
                         </section>
-                    </div>
 
-                    {/* Right Column - About */}
-                    <div className="settings-column settings-right">
-                        <section className="settings-section about-section">
-                            <h3 className="settings-section-title">About</h3>
-                            <div className="about-header">
-                                <img src={logo} alt="Tulip" className="about-logo" />
-                                <div className="about-app-info">
-                                    <span className="about-app-name">Tulip File Explorer</span>
-                                    {version && <span className="about-version">Version {version}</span>}
+                        <section className="settings-section">
+                            <h3 className="eyebrow">Accent colour</h3>
+                            <div className="accent-row">
+                                <div className="accent-options" role="radiogroup" aria-label="Accent colour">
+                                    {COLOR_PRESETS.map((color) => (
+                                        <button
+                                            key={color.id}
+                                            role="radio"
+                                            aria-checked={currentColor === color.id}
+                                            aria-label={color.name}
+                                            title={color.name}
+                                            className={`accent-option ${currentColor === color.id ? 'active' : ''}`}
+                                            style={{ '--swatch': color.preview }}
+                                            onClick={() => onColorChange(color.id)}
+                                        >
+                                            <span className="accent-dot" />
+                                        </button>
+                                    ))}
                                 </div>
-                            </div>
-                            <div className="about-info">
-                                <div className="about-row">
-                                    <span className="about-label">Built with</span>
-                                    <span className="about-value">Electron + React</span>
-                                </div>
-                                <div className="about-row">
-                                    <span className="about-label">License</span>
-                                    <span className="about-value">MIT</span>
-                                </div>
-                                <div className="about-row">
-                                    <span className="about-label">Designed By</span>
-                                    <span className="about-value">Atish Ak Sharma</span>
-                                </div>
-                            </div>
-                            <button
-                                className="update-btn"
-                                onClick={() => window.electronAPI?.openExternal('https://github.com/atishsharma/Tulip-File-Explorer/releases')}
-                            >
-                                <span className="update-icon">📥</span>
-                                <span>Check for Updates</span>
-                            </button>
-
-                            <div className="project-links">
-                                <button
-                                    className="project-link-btn"
-                                    onClick={() => window.electronAPI?.openExternal('https://atishaksharma.com')}
-                                >
-                                    <span className="project-icon">🌐</span>
-                                    <span>Webpage Testing Tool</span>
-                                </button>
-                                <button
-                                    className="project-link-btn"
-                                    onClick={() => window.electronAPI?.openExternal('https://atishaksharma.com/hub')}
-                                >
-                                    <span className="project-icon">🔖</span>
-                                    <span>Bookmark Manager Hub</span>
-                                </button>
+                                <span className="accent-name">{currentName}</span>
                             </div>
                         </section>
+
+                        <section className="settings-section">
+                            <h3 className="eyebrow">Window</h3>
+                            <label className="setting-row">
+                                <span className="setting-text">
+                                    <span className="setting-title">Glass transparency</span>
+                                    <span className="setting-desc">Frosted panels over a soft backdrop. Turn off for solid surfaces.</span>
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    className="switch"
+                                    checked={glass}
+                                    onChange={(e) => onGlassChange?.(e.target.checked)}
+                                />
+                            </label>
+                            <label className="setting-row">
+                                <span className="setting-text">
+                                    <span className="setting-title">Preview panel</span>
+                                    <span className="setting-desc">Show file preview and details on the right</span>
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    className="switch"
+                                    checked={showPreview}
+                                    onChange={(e) => onShowPreviewChange?.(e.target.checked)}
+                                />
+                            </label>
+                        </section>
                     </div>
+
+                    <aside className="settings-about" aria-label="About">
+                        <div className="about-header">
+                            <img src={logo} alt="" className="about-logo" />
+                            <div className="about-app-info">
+                                <span className="about-app-name">Tulip File Explorer</span>
+                                {version && <span className="about-version">Version {version}</span>}
+                            </div>
+                        </div>
+                        <dl className="about-info">
+                            <div className="about-row"><dt>Built with</dt><dd>Electron + React</dd></div>
+                            <div className="about-row"><dt>License</dt><dd>MIT</dd></div>
+                            <div className="about-row"><dt>Designed by</dt><dd>Atish Ak Sharma</dd></div>
+                        </dl>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => window.electronAPI?.openExternal('https://github.com/atishsharma/Tulip-File-Explorer/releases')}
+                        >
+                            <LineIcon name="downloads" size={16} strokeWidth={2} />
+                            Check for updates
+                        </button>
+                        <div className="about-links">
+                            <button className="link-btn" onClick={() => window.electronAPI?.openExternal('https://github.com/atishsharma/Tulip-File-Explorer')}>
+                                Source on GitHub
+                            </button>
+                            <button className="link-btn" onClick={() => window.electronAPI?.openExternal('https://atishaksharma.com')}>
+                                Webpage Testing Tool
+                            </button>
+                            <button className="link-btn" onClick={() => window.electronAPI?.openExternal('https://atishaksharma.com/hub')}>
+                                Bookmark Manager Hub
+                            </button>
+                        </div>
+                    </aside>
                 </div>
             </div>
         </div>

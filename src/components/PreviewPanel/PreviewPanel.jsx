@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getFileIcon } from '../../utils/fileIcons';
+import { getFileIcon, LineIcon } from '../../utils/fileIcons';
 import { formatFileSize, formatDate, getFileType } from '../../utils/formatters';
 import { fileUrl } from '../../utils/paths';
 import './PreviewPanel.css';
@@ -11,7 +11,7 @@ function PreviewPanel({ item }) {
     // Results are tagged with the item they belong to, so a slow response for a
     // previously selected file can never replace the current preview
     const [loaded, setLoaded] = useState({ key: null, preview: null, metadata: null });
-    const [width, setWidth] = useState(280);
+    const [width, setWidth] = useState(300);
     const resizeRef = useRef(null);
     const isDragging = useRef(false);
 
@@ -54,7 +54,7 @@ function PreviewPanel({ item }) {
         const handleMouseMove = (e) => {
             if (isDragging.current) {
                 const newWidth = window.innerWidth - e.clientX;
-                setWidth(Math.max(200, Math.min(500, newWidth)));
+                setWidth(Math.max(240, Math.min(520, newWidth)));
             }
         };
 
@@ -95,13 +95,19 @@ function PreviewPanel({ item }) {
         }
     };
 
+    const handleShowInFolder = () => {
+        if (window.electronAPI && item) {
+            window.electronAPI.showInFolder(item.path);
+        }
+    };
+
     const renderPreview = () => {
         if (!preview) return null;
 
         if (!preview.success) {
             return (
-                <div className="preview-error">
-                    <span className="preview-icon-large">⚠️</span>
+                <div className="preview-placeholder">
+                    <span className="preview-state-icon"><LineIcon name="alert" size={26} /></span>
                     <p>Unable to preview</p>
                     {preview.error && <p className="preview-hint">{preview.error}</p>}
                 </div>
@@ -119,8 +125,8 @@ function PreviewPanel({ item }) {
                 );
             case 'audio':
                 return (
-                    <div className="preview-audio-container">
-                        <span className="preview-icon-large">🎵</span>
+                    <div className="preview-placeholder">
+                        <span className="preview-state-icon"><LineIcon name="audio" size={26} /></span>
                         <audio controls className="preview-audio" key={preview.path}>
                             <source src={fileUrl(preview.path)} />
                         </audio>
@@ -130,44 +136,40 @@ function PreviewPanel({ item }) {
                 return (
                     <pre className="preview-text">
                         {preview.content}
-                        {preview.truncated && <span className="truncated-notice">... (truncated)</span>}
+                        {preview.truncated && <span className="truncated-notice">{'\n'}… showing the first 50 KB</span>}
                     </pre>
                 );
-            case 'binary':
-                return (
-                    <div className="preview-unknown">
-                        <span className="preview-icon-large">{getFileIcon(item)}</span>
-                        <p>Binary file</p>
-                    </div>
-                );
             case 'folder':
-                return (
-                    <div className="preview-folder">
-                        <span className="preview-icon-large">📁</span>
-                        <p>Folder</p>
-                    </div>
-                );
+                return <div className="preview-placeholder large-glyph" style={{ '--icon-size': '120px' }}>{getFileIcon(item)}</div>;
             case 'pdf':
                 return (
-                    <div className="preview-pdf">
-                        <span className="preview-icon-large">📄</span>
-                        <p>PDF Document</p>
-                        <p className="preview-hint">Use Open to view in your PDF reader</p>
+                    <div className="preview-placeholder" style={{ '--icon-size': '96px' }}>
+                        {getFileIcon(item)}
+                        <p className="preview-hint">Open to view in your PDF reader</p>
                     </div>
                 );
             default:
                 return (
-                    <div className="preview-unknown">
-                        <span className="preview-icon-large">{getFileIcon(item)}</span>
-                        <p>{getFileType(item)}</p>
+                    <div className="preview-placeholder" style={{ '--icon-size': '96px' }}>
+                        {getFileIcon(item)}
+                        <p className="preview-hint">{preview.type === 'binary' ? 'Binary file' : 'No preview available'}</p>
                     </div>
                 );
         }
     };
 
+    const metaRows = [];
+    if (item) {
+        if (!item.isDirectory) metaRows.push(['Size', formatFileSize(item.size)]);
+        if (metadata?.width) metaRows.push([metadata.type === 'video' ? 'Resolution' : 'Dimensions', `${metadata.width} × ${metadata.height}`]);
+        if (metadata?.type === 'video' && metadata.duration) metaRows.push(['Duration', formatDuration(metadata.duration)]);
+        if (metadata?.type === 'video' && metadata.codec) metaRows.push(['Codec', metadata.codec.toUpperCase()]);
+        metaRows.push(['Modified', formatDate(item.modified)]);
+        if (item.created) metaRows.push(['Created', formatDate(item.created)]);
+    }
+
     return (
-        <aside className="preview-panel glass-panel" style={{ width }} aria-label="Preview">
-            {/* Resize Handle */}
+        <aside className="preview-panel" style={{ width }} aria-label="Preview">
             <div
                 className="resize-handle"
                 onMouseDown={handleResizeStart}
@@ -177,95 +179,42 @@ function PreviewPanel({ item }) {
                 aria-label="Resize preview panel"
             />
 
-            <div className="preview-content-wrapper">
-                {!item ? (
-                    <div className="preview-empty">
-                        <span className="preview-empty-icon">👆</span>
-                        <p>Select a file to preview</p>
+            {!item ? (
+                <div className="preview-empty">
+                    <span className="preview-state-icon"><LineIcon name="panel" size={26} /></span>
+                    <p>Select a file to see its preview and details</p>
+                </div>
+            ) : (
+                <div className="preview-content">
+                    <div className={`preview-area ${preview?.type === 'text' ? 'is-text' : ''}`}>
+                        {loading ? <div className="spinner" /> : renderPreview()}
                     </div>
-                ) : (
-                    <>
-                        {/* Preview Area */}
-                        <div className="preview-area">
-                            {loading ? (
-                                <div className="preview-loading">
-                                    <div className="spinner"></div>
-                                </div>
-                            ) : (
-                                renderPreview()
-                            )}
-                        </div>
 
-                        {/* File Info */}
-                        <div className="preview-info">
-                            <h3 className="preview-filename">{item.name}</h3>
-                            <span className="preview-type-badge">{getFileType(item)}</span>
+                    <div className="preview-heading">
+                        <h2 className="preview-filename">{item.name}</h2>
+                        <span className="chip">{getFileType(item)}</span>
+                    </div>
 
-                            <div className="preview-meta">
-                                {!item.isDirectory && (
-                                    <div className="meta-row">
-                                        <span className="meta-label">Size</span>
-                                        <span className="meta-value">{formatFileSize(item.size)}</span>
-                                    </div>
-                                )}
-                                <div className="meta-row">
-                                    <span className="meta-label">Modified</span>
-                                    <span className="meta-value">{formatDate(item.modified)}</span>
-                                </div>
-
-                                {/* Image metadata */}
-                                {metadata?.type === 'image' && metadata.width && (
-                                    <>
-                                        <div className="meta-row">
-                                            <span className="meta-label">Dimensions</span>
-                                            <span className="meta-value">{metadata.width} × {metadata.height}</span>
-                                        </div>
-                                        {metadata.megapixels && (
-                                            <div className="meta-row">
-                                                <span className="meta-label">Megapixels</span>
-                                                <span className="meta-value">{metadata.megapixels} MP</span>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-
-                                {/* Video metadata */}
-                                {metadata?.type === 'video' && (
-                                    <>
-                                        {metadata.duration && (
-                                            <div className="meta-row">
-                                                <span className="meta-label">Duration</span>
-                                                <span className="meta-value">{formatDuration(metadata.duration)}</span>
-                                            </div>
-                                        )}
-                                        {metadata.width && (
-                                            <div className="meta-row">
-                                                <span className="meta-label">Resolution</span>
-                                                <span className="meta-value">{metadata.width} × {metadata.height}</span>
-                                            </div>
-                                        )}
-                                        {metadata.codec && (
-                                            <div className="meta-row">
-                                                <span className="meta-label">Codec</span>
-                                                <span className="meta-value">{metadata.codec.toUpperCase()}</span>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
+                    <dl className="preview-meta">
+                        {metaRows.map(([label, value]) => (
+                            <div className="meta-row" key={label}>
+                                <dt>{label}</dt>
+                                <dd>{value}</dd>
                             </div>
+                        ))}
+                    </dl>
 
-                            <button className="preview-action-btn" onClick={handleOpen}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                    <polyline points="15 3 21 3 21 9" />
-                                    <line x1="10" y1="14" x2="21" y2="3" />
-                                </svg>
-                                Open
-                            </button>
-                        </div>
-                    </>
-                )}
-            </div>
+                    <div className="preview-actions">
+                        <button className="btn btn-primary" onClick={handleOpen}>
+                            <LineIcon name="open" size={16} strokeWidth={2} />
+                            Open
+                        </button>
+                        <button className="btn btn-secondary" onClick={handleShowInFolder}>
+                            Show in folder
+                        </button>
+                    </div>
+                </div>
+            )}
         </aside>
     );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useModal } from '../../hooks/useModal';
+import { LineIcon } from '../../utils/fileIcons';
 import { getRcloneProviderInfo, capitalizeFirst } from '../../utils/rcloneProviders';
 import './RcloneModal.css';
 
@@ -86,18 +87,20 @@ function RcloneModal({ isOpen, onClose, onMounted, notify }) {
     if (!isOpen) return null;
 
     return (
-        <div className="rclone-modal-overlay" onClick={onClose}>
+        <div className="overlay" onClick={onClose}>
             <div
                 ref={dialogRef}
-                className="rclone-modal"
+                className="rclone-modal dialog"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="rclone-title"
                 onClick={e => e.stopPropagation()}
             >
-                <header className="rclone-header">
-                    <h2 id="rclone-title">Cloud Storage</h2>
-                    <button className="rclone-close" onClick={onClose} aria-label="Close">✕</button>
+                <header className="dialog-header">
+                    <h2 id="rclone-title" className="dialog-title">Cloud drives</h2>
+                    <button className="dialog-close" onClick={onClose} aria-label="Close">
+                        <LineIcon name="close" size={14} strokeWidth={2.2} />
+                    </button>
                 </header>
 
                 <div className="rclone-content">
@@ -123,7 +126,7 @@ function RcloneModal({ isOpen, onClose, onMounted, notify }) {
                         </div>
                     ) : remotes.length === 0 ? (
                         <div className="rclone-empty">
-                            <div className="rclone-empty-icon">☁️</div>
+                            <div className="rclone-empty-icon"><LineIcon name="cloud" size={28} /></div>
                             <p className="rclone-empty-title">No cloud drives configured</p>
                             <p className="rclone-empty-message">
                                 Use the button below to configure your first cloud storage connection.
@@ -147,7 +150,7 @@ function RcloneModal({ isOpen, onClose, onMounted, notify }) {
                                                     className="rclone-icon-img"
                                                 />
                                             ) : (
-                                                <span className="rclone-icon">{providerInfo.icon}</span>
+                                                <span className="rclone-icon"><LineIcon name="cloud" size={20} /></span>
                                             )}
                                             <div className="rclone-item-details">
                                                 <span className="rclone-item-name">{capitalizeFirst(remote.name)}</span>
@@ -159,7 +162,7 @@ function RcloneModal({ isOpen, onClose, onMounted, notify }) {
                                             disabled={isProcessing}
                                             onClick={() => isMounted ? handleUnmount(remote) : handleMount(remote)}
                                         >
-                                            {isProcessing ? '⋯' : isMounted ? 'Unmount' : 'Mount'}
+                                            {isProcessing ? 'Working…' : isMounted ? 'Unmount' : 'Mount'}
                                         </button>
                                     </div>
                                 );
@@ -170,7 +173,7 @@ function RcloneModal({ isOpen, onClose, onMounted, notify }) {
 
                 <footer className="rclone-footer">
                     <button className="rclone-config-btn" onClick={handleOpenConfig} disabled={notInstalled}>
-                        <span className="rclone-config-icon">⚙️</span>
+                        <LineIcon name="settings" size={16} />
                         <span>Open Rclone Config</span>
                     </button>
                 </footer>
