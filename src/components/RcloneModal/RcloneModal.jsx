@@ -1,50 +1,58 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useModal } from '../../hooks/useModal';
 import { getRcloneProviderInfo, capitalizeFirst } from '../../utils/rcloneProviders';
 import './RcloneModal.css';
 
-function RcloneModal({ isOpen, onClose, onMount }) {
+function RcloneModal({ isOpen, onClose, onMounted, notify }) {
     const [remotes, setRemotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [notInstalled, setNotInstalled] = useState(false);
     const [processing, setProcessing] = useState(null);
     const [mounted, setMounted] = useState(new Set());
+    const dialogRef = useModal(isOpen, onClose);
 
-    useEffect(() => {
-        if (isOpen) {
-            loadRemotes();
-        }
-    }, [isOpen]);
-
-    const loadRemotes = async () => {
+    const loadRemotes = useCallback(async () => {
+        if (!window.electronAPI) return;
         setLoading(true);
         setError(null);
+        setNotInstalled(false);
         try {
-            const mountedResult = await window.electronAPI.rclone.getMounted();
-            const mountedSet = new Set(mountedResult.map(m => m.name));
-            setMounted(mountedSet);
-
-            const result = await window.electronAPI.rclone.listRemotes();
+            const [mountedResult, result] = await Promise.all([
+                window.electronAPI.rclone.getMounted(),
+                window.electronAPI.rclone.listRemotes(),
+            ]);
+            setMounted(new Set((mountedResult || []).map((m) => m.name)));
             if (result.success) {
                 setRemotes(result.remotes);
             } else {
                 setError(result.error);
+                setNotInstalled(!!result.notInstalled);
             }
-        } catch (err) {
+        } catch {
             setError('Failed to contact backend');
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            loadRemotes();
+        }
+    }, [isOpen, loadRemotes]);
 
     const handleMount = async (remote) => {
         setProcessing(remote.name);
         try {
             const result = await window.electronAPI.rclone.mount(remote.name, remote.type);
             if (result.success) {
-                setMounted(prev => new Set(prev).add(remote.name));
-                if (onMount) onMount(remote.name, result.path);
+                setMounted((prev) => new Set(prev).add(remote.name));
+                notify?.(`Mounted ${remote.name}`, 'success');
+                onMounted?.(remote.name, result.path);
             } else {
-                console.error(result.error);
+                notify?.(result.error || `Failed to mount ${remote.name}`, 'error');
             }
         } finally {
             setProcessing(null);
@@ -56,11 +64,14 @@ function RcloneModal({ isOpen, onClose, onMount }) {
         try {
             const result = await window.electronAPI.rclone.unmount(remote.name);
             if (result.success) {
-                setMounted(prev => {
+                setMounted((prev) => {
                     const next = new Set(prev);
                     next.delete(remote.name);
                     return next;
                 });
+                onMounted?.();
+            } else {
+                notify?.(result.error || `Failed to unmount ${remote.name}`, 'error');
             }
         } finally {
             setProcessing(null);
@@ -68,19 +79,25 @@ function RcloneModal({ isOpen, onClose, onMount }) {
     };
 
     const handleOpenConfig = async () => {
-        if (window.electronAPI.rclone.openConfig) {
-            await window.electronAPI.rclone.openConfig();
-        }
+        const result = await window.electronAPI?.rclone.openConfig();
+        if (result && !result.success) notify?.(result.error, 'error');
     };
 
     if (!isOpen) return null;
 
     return (
         <div className="rclone-modal-overlay" onClick={onClose}>
-            <div className="rclone-modal" onClick={e => e.stopPropagation()}>
+            <div
+                ref={dialogRef}
+                className="rclone-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="rclone-title"
+                onClick={e => e.stopPropagation()}
+            >
                 <header className="rclone-header">
-                    <h2>Cloud Storage</h2>
-                    <button className="rclone-close" onClick={onClose}>✕</button>
+                    <h2 id="rclone-title">Cloud Storage</h2>
+                    <button className="rclone-close" onClick={onClose} aria-label="Close">✕</button>
                 </header>
 
                 <div className="rclone-content">
@@ -88,9 +105,20 @@ function RcloneModal({ isOpen, onClose, onMount }) {
                         <div className="rclone-loading">Loading remotes...</div>
                     ) : error ? (
                         <div className="rclone-error">
-                            <p>Error: {error}</p>
+                            <p>{notInstalled ? 'rclone is not installed' : `Error: ${error}`}</p>
                             <p style={{ fontSize: '0.8rem', marginTop: '8px' }}>
-                                Make sure rclone is installed and configured.
+                                {notInstalled ? (
+                                    <>
+                                        Cloud drives need rclone.{' '}
+                                        <button
+                                            className="rclone-link"
+                                            onClick={() => window.electronAPI?.openExternal('https://rclone.org/install/')}
+                                        >
+                                            Install rclone
+                                        </button>
+                                        , then reopen this dialog.
+                                    </>
+                                ) : 'Make sure rclone is installed and configured.'}
                             </p>
                         </div>
                     ) : remotes.length === 0 ? (
@@ -107,12 +135,12 @@ function RcloneModal({ isOpen, onClose, onMount }) {
                                 const isMounted = mounted.has(remote.name);
                                 const isProcessing = processing === remote.name;
                                 const providerInfo = getRcloneProviderInfo(remote.type);
-                                const isImage = typeof providerInfo.icon === 'string' && providerInfo.icon.startsWith('/');
+                                const isImage = typeof providerInfo.icon === 'string' && (providerInfo.icon.startsWith('/') || providerInfo.icon.includes('.png') || providerInfo.icon.startsWith('data:'));
 
                                 return (
                                     <div key={remote.name} className="rclone-item">
                                         <div className="rclone-item-info">
-                                            {isImage || providerInfo.icon.includes('.png') ? (
+                                            {isImage ? (
                                                 <img
                                                     src={providerInfo.icon}
                                                     alt={providerInfo.name}
@@ -141,7 +169,7 @@ function RcloneModal({ isOpen, onClose, onMount }) {
                 </div>
 
                 <footer className="rclone-footer">
-                    <button className="rclone-config-btn" onClick={handleOpenConfig}>
+                    <button className="rclone-config-btn" onClick={handleOpenConfig} disabled={notInstalled}>
                         <span className="rclone-config-icon">⚙️</span>
                         <span>Open Rclone Config</span>
                     </button>

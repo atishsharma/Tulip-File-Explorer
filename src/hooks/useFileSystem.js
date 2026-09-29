@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { THIS_PC, getParentPath, isRootPath } from '../utils/paths';
 
-export function useFileSystem() {
+const noop = () => {};
+
+export function useFileSystem({ notify = noop } = {}) {
     const [currentPath, setCurrentPath] = useState('');
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -8,295 +11,233 @@ export function useFileSystem() {
     const [specialFolders, setSpecialFolders] = useState([]);
     const [drives, setDrives] = useState([]);
     const [cloudDrives, setCloudDrives] = useState([]);
-    const [navigationHistory, setNavigationHistory] = useState([]);
-    const [historyIndex, setHistoryIndex] = useState(-1);
-    const [clipboard, setClipboard] = useState(null); // { action: 'cut'|'copy', items: [] }
+    const [history, setHistory] = useState({ entries: [], index: -1 });
 
-    // Initialize on mount
+    // Refs give async callbacks the latest values without re-creating them
+    const currentPathRef = useRef('');
+    const historyRef = useRef(history);
+    const requestIdRef = useRef(0);
+    const notifyRef = useRef(notify);
+
     useEffect(() => {
-        async function init() {
-            try {
-                if (window.electronAPI) {
-                    const [initialPath, folders, driveList, cloudList] = await Promise.all([
-                        window.electronAPI.getInitialPath(),
-                        window.electronAPI.getSpecialFolders(),
-                        window.electronAPI.getDrives(),
-                        window.electronAPI.rclone.getMounted(),
-                    ]);
+        historyRef.current = history;
+    }, [history]);
 
-                    setSpecialFolders(folders);
-                    setDrives(driveList);
-                    if (Array.isArray(cloudList)) {
-                        setCloudDrives(cloudList);
-                    }
+    useEffect(() => {
+        notifyRef.current = notify;
+    }, [notify]);
 
-                    // Navigate to initial path (thispc:// for Windows, home for others)
-                    navigateToPath(initialPath, true);
-                } else {
-                    // Running in browser (dev mode without Electron)
-                    setError('Electron API not available. Run with Electron for full functionality.');
-                    setLoading(false);
-                }
-            } catch (err) {
-                setError(err.message);
-                setLoading(false);
-            }
+    /**
+     * Load a folder. Only the most recent request may update state, so a slow folder
+     * can never overwrite one the user navigated to afterwards.
+     * Returns the result, or null if a newer request superseded this one.
+     */
+    const loadPath = useCallback(async (path, { silent = false } = {}) => {
+        if (!window.electronAPI) return null;
+        const requestId = ++requestIdRef.current;
+        if (!silent) {
+            setLoading(true);
+            setError(null);
         }
 
-        init();
+        let result;
+        try {
+            result = path === THIS_PC
+                ? await window.electronAPI.getThisPCView()
+                : await window.electronAPI.readDirectory(path);
+        } catch (err) {
+            result = { success: false, error: err.message };
+        }
 
-        // Listen for drive changes
-        if (window.electronAPI?.onDrivesUpdated) {
-            const unsubscribe = window.electronAPI.onDrivesUpdated((data) => {
-                if (data.drives) {
-                    setDrives(data.drives);
-                }
-                if (data.rcloneMounts) {
-                    setCloudDrives(data.rcloneMounts);
-                }
+        if (requestId !== requestIdRef.current) return null;
+
+        if (result.success) {
+            setItems(result.items);
+            setCurrentPath(result.path);
+            currentPathRef.current = result.path;
+            setError(null);
+        } else if (!silent) {
+            setError(result.error || 'Unable to open folder');
+        }
+        if (!silent) setLoading(false);
+        return result;
+    }, []);
+
+    const navigateTo = useCallback(async (path) => {
+        const result = await loadPath(path);
+        if (result?.success) {
+            setHistory((prev) => {
+                if (prev.entries[prev.index] === result.path) return prev;
+                const entries = [...prev.entries.slice(0, prev.index + 1), result.path];
+                return { entries, index: entries.length - 1 };
             });
+        }
+        return result;
+    }, [loadPath]);
 
-            return () => {
-                unsubscribe();
-            };
+    const goToHistoryIndex = useCallback(async (index) => {
+        const { entries } = historyRef.current;
+        if (index < 0 || index >= entries.length) return;
+        const result = await loadPath(entries[index]);
+        if (result?.success) {
+            setHistory((prev) => ({ ...prev, index }));
+        }
+    }, [loadPath]);
+
+    const navigateBack = useCallback(() => goToHistoryIndex(historyRef.current.index - 1), [goToHistoryIndex]);
+    const navigateForward = useCallback(() => goToHistoryIndex(historyRef.current.index + 1), [goToHistoryIndex]);
+
+    const navigateUp = useCallback(() => {
+        const parent = getParentPath(currentPathRef.current);
+        if (parent) navigateTo(parent);
+    }, [navigateTo]);
+
+    const refreshDrives = useCallback(async () => {
+        if (!window.electronAPI) return;
+        try {
+            const [driveList, cloudList] = await Promise.all([
+                window.electronAPI.getDrives(),
+                window.electronAPI.rclone.getMounted(),
+            ]);
+            setDrives(driveList);
+            if (Array.isArray(cloudList)) setCloudDrives(cloudList);
+        } catch (err) {
+            console.error('Failed to refresh drives:', err);
         }
     }, []);
 
-    const navigateToPath = useCallback(async (path, isInitial = false) => {
-        if (!window.electronAPI) return;
+    /**
+     * Reload the current folder without touching navigation history.
+     */
+    const refresh = useCallback(async ({ silent = false } = {}) => {
+        const path = currentPathRef.current;
+        const tasks = [refreshDrives()];
+        if (path) tasks.push(loadPath(path, { silent }));
+        await Promise.all(tasks);
+    }, [loadPath, refreshDrives]);
 
-        setLoading(true);
-        setError(null);
-
-        try {
-            let result;
-
-            // Handle special "This PC" path
-            if (path === 'thispc://') {
-                result = await window.electronAPI.getThisPCView();
-            } else {
-                result = await window.electronAPI.readDirectory(path);
-            }
-
-            if (result.success) {
-                setItems(result.items);
-                setCurrentPath(result.path);
-
-                // Update history
-                if (!isInitial) {
-                    setNavigationHistory((prev) => {
-                        const newHistory = prev.slice(0, historyIndex + 1);
-                        newHistory.push(result.path);
-                        return newHistory;
-                    });
-                    setHistoryIndex((prev) => prev + 1);
-                } else {
-                    setNavigationHistory([path]);
-                    setHistoryIndex(0);
-                }
-            } else {
-                setError(result.error);
-            }
-        } catch (err) {
-            setError(err.message);
-        } finally {
+    // Initialize on mount and subscribe to drive updates pushed by the main process
+    useEffect(() => {
+        if (!window.electronAPI) {
+            // Running in a plain browser (vite dev without Electron)
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setError('Electron API not available. Run with Electron for full functionality.');
             setLoading(false);
+            return undefined;
         }
-    }, [historyIndex]);
 
-    const navigateTo = useCallback((path) => {
-        navigateToPath(path);
-    }, [navigateToPath]);
-
-    const navigateBack = useCallback(() => {
-        if (historyIndex > 0) {
-            const newIndex = historyIndex - 1;
-            const path = navigationHistory[newIndex];
-            setHistoryIndex(newIndex);
-
-            // Navigate without adding to history
-            setLoading(true);
-
-            // Handle special "This PC" path
-            const promise = path === 'thispc://'
-                ? window.electronAPI.getThisPCView()
-                : window.electronAPI.readDirectory(path);
-
-            promise.then((result) => {
-                if (result.success) {
-                    setItems(result.items);
-                    setCurrentPath(result.path);
+        let cancelled = false;
+        (async () => {
+            try {
+                const [initialPath, folders] = await Promise.all([
+                    window.electronAPI.getInitialPath(),
+                    window.electronAPI.getSpecialFolders(),
+                ]);
+                if (cancelled) return;
+                setSpecialFolders(folders);
+                refreshDrives();
+                const result = await loadPath(initialPath);
+                if (result?.success && !cancelled) {
+                    setHistory({ entries: [result.path], index: 0 });
                 }
-                setLoading(false);
-            });
-        }
-    }, [navigationHistory, historyIndex]);
-
-    const navigateForward = useCallback(() => {
-        if (historyIndex < navigationHistory.length - 1) {
-            const newIndex = historyIndex + 1;
-            const path = navigationHistory[newIndex];
-            setHistoryIndex(newIndex);
-
-            // Navigate without adding to history
-            setLoading(true);
-
-            // Handle special "This PC" path
-            const promise = path === 'thispc://'
-                ? window.electronAPI.getThisPCView()
-                : window.electronAPI.readDirectory(path);
-
-            promise.then((result) => {
-                if (result.success) {
-                    setItems(result.items);
-                    setCurrentPath(result.path);
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err.message);
+                    setLoading(false);
                 }
-                setLoading(false);
-            });
-        }
-    }, [navigationHistory, historyIndex]);
-
-    const navigateUp = useCallback(() => {
-        if (!currentPath) return;
-
-        // Get parent directory
-        const separator = currentPath.includes('\\') ? '\\' : '/';
-        const parts = currentPath.split(separator).filter(Boolean);
-
-        if (parts.length > 1) {
-            parts.pop();
-            let parentPath = parts.join(separator);
-
-            // Handle Windows drive letters
-            if (currentPath.includes('\\') && !parentPath.includes('\\')) {
-                parentPath += '\\';
-            } else if (currentPath.startsWith('/')) {
-                parentPath = '/' + parentPath;
             }
+        })();
 
-            navigateTo(parentPath);
-        } else if (currentPath.startsWith('/') && currentPath !== '/') {
-            navigateTo('/');
-        }
-    }, [currentPath, navigateTo]);
+        const unsubscribe = window.electronAPI.onDrivesUpdated((data) => {
+            if (data.drives) setDrives(data.drives);
+            if (data.rcloneMounts) setCloudDrives(data.rcloneMounts);
+            // Keep "This PC" in sync without a visible reload
+            if (currentPathRef.current === THIS_PC) loadPath(THIS_PC, { silent: true });
+        });
+
+        return () => {
+            cancelled = true;
+            unsubscribe();
+        };
+    }, [loadPath, refreshDrives]);
 
     const openFile = useCallback(async (item) => {
-        if (!window.electronAPI) return;
-
+        if (!window.electronAPI || !item) return;
         if (item.isDirectory) {
             navigateTo(item.path);
-        } else {
-            await window.electronAPI.openFile(item.path);
+            return;
+        }
+        const result = await window.electronAPI.openFile(item.path);
+        if (result && !result.success) {
+            notifyRef.current(`Couldn't open "${item.name}": ${result.error}`, 'error');
         }
     }, [navigateTo]);
 
-    const openWith = useCallback(async (item) => {
-        if (!window.electronAPI) return;
-        await window.electronAPI.openWith(item.path);
-    }, []);
-
-    const refresh = useCallback(async () => {
-        if (currentPath) {
-            navigateToPath(currentPath, true);
-        }
-        // Also refresh drives/cloud drives
-        if (window.electronAPI) {
-            const driveList = await window.electronAPI.getDrives();
-            setDrives(driveList);
-            const cloudList = await window.electronAPI.rclone.getMounted();
-            if (Array.isArray(cloudList)) setCloudDrives(cloudList);
-        }
-    }, [currentPath, navigateToPath]);
-
-    // File operations
-    const deleteItem = useCallback(async (item) => {
-        if (!window.electronAPI) return { success: false };
-
-        // Single item delete
-        const confirmed = await window.electronAPI.confirmDelete(1, item.isDirectory);
-        if (!confirmed) return { success: false, cancelled: true };
-
-        const result = await window.electronAPI.deleteItem(item.path);
-        if (result.success) {
-            refresh();
-        }
-        return result;
-    }, [refresh]);
-
     const deleteItems = useCallback(async (itemsToDelete) => {
-        if (!window.electronAPI || !itemsToDelete.length) return { success: false };
+        if (!window.electronAPI || !itemsToDelete?.length) return { success: false };
 
-        const count = itemsToDelete.length;
-        const isMulti = count > 1;
-        // If single, check if it is a directory for the message phrasing
-        const isFolder = !isMulti && itemsToDelete[0].isDirectory;
-
-        const confirmed = await window.electronAPI.confirmDelete(count, isFolder);
+        const isFolder = itemsToDelete.length === 1 && itemsToDelete[0].isDirectory;
+        const confirmed = await window.electronAPI.confirmDelete(itemsToDelete.map((i) => i.name), isFolder);
         if (!confirmed) return { success: false, cancelled: true };
 
-        // Delete all
-        const results = [];
+        const failures = [];
         for (const item of itemsToDelete) {
             const res = await window.electronAPI.deleteItem(item.path);
-            results.push(res);
+            if (!res.success) failures.push(`${item.name}: ${res.error}`);
         }
 
-        // If any succeeded, refresh
-        if (results.some(r => r.success)) {
-            refresh();
-        }
-
-        return { success: results.every(r => r.success) };
+        if (failures.length) notifyRef.current(`Couldn't delete:\n${failures.join('\n')}`, 'error');
+        if (failures.length < itemsToDelete.length) refresh({ silent: true });
+        return { success: failures.length === 0 };
     }, [refresh]);
+
+    const deleteItem = useCallback((item) => deleteItems([item]), [deleteItems]);
 
     const renameItem = useCallback(async (item, newName) => {
         if (!window.electronAPI) return { success: false };
-
-        const result = await window.electronAPI.renameFile(item.path, newName);
+        const result = await window.electronAPI.renameItem(item.path, newName);
         if (result.success) {
-            refresh();
+            refresh({ silent: true });
+        } else {
+            notifyRef.current(`Couldn't rename "${item.name}": ${result.error}`, 'error');
         }
         return result;
     }, [refresh]);
 
-    const createFolder = useCallback(async (folderName) => {
-        if (!window.electronAPI || !currentPath) return { success: false };
-
-        const result = await window.electronAPI.createFolder(currentPath, folderName);
+    const createEntry = useCallback(async (kind, name) => {
+        const path = currentPathRef.current;
+        if (!window.electronAPI || !path || path === THIS_PC) return { success: false };
+        const result = kind === 'folder'
+            ? await window.electronAPI.createFolder(path, name)
+            : await window.electronAPI.createFile(path, name);
         if (result.success) {
-            refresh();
+            await refresh({ silent: true });
+        } else {
+            notifyRef.current(`Couldn't create ${kind}: ${result.error}`, 'error');
         }
         return result;
-    }, [currentPath, refresh]);
+    }, [refresh]);
 
-    const createFile = useCallback(async (fileName) => {
-        if (!window.electronAPI || !currentPath) return { success: false };
-
-        const result = await window.electronAPI.createFile(currentPath, fileName);
-        if (result.success) {
-            refresh();
-        }
-        return result;
-    }, [currentPath, refresh]);
+    const createFolder = useCallback((name = 'New Folder') => createEntry('folder', name), [createEntry]);
+    const createFile = useCallback((name = 'New Text Document.txt') => createEntry('file', name), [createEntry]);
 
     const showContextMenu = useCallback(async (menuType, item) => {
         if (!window.electronAPI) return null;
-        return await window.electronAPI.showContextMenu(menuType, item?.path || currentPath);
-    }, [currentPath]);
-
-    const copyToClipboard = useCallback((items, action = 'copy') => {
-        setClipboard({ action, items });
+        return window.electronAPI.showContextMenu(menuType, item?.path || currentPathRef.current);
     }, []);
 
     const pasteFromClipboard = useCallback(async () => {
-        if (!window.electronAPI || !currentPath) return { success: false };
-        const result = await window.electronAPI.clipboardPaste(currentPath);
-        if (result.success) {
-            refresh();
-            setClipboard(null); // Clear local clipboard state too as main process clears it
+        const path = currentPathRef.current;
+        if (!window.electronAPI || !path || path === THIS_PC) return { success: false };
+        const result = await window.electronAPI.clipboardPaste(path);
+        if (result.results?.some((r) => r.success && !r.skipped)) {
+            refresh({ silent: true });
+        }
+        if (!result.success && result.error) {
+            notifyRef.current(`Paste failed:\n${result.error}`, 'error');
         }
         return result;
-    }, [currentPath, refresh]);
+    }, [refresh]);
 
     return {
         currentPath,
@@ -305,25 +246,22 @@ export function useFileSystem() {
         error,
         specialFolders,
         drives,
+        cloudDrives,
         navigateTo,
         navigateBack,
         navigateForward,
         navigateUp,
-        canGoBack: historyIndex > 0,
-        canGoForward: historyIndex < navigationHistory.length - 1,
-        canGoUp: currentPath && currentPath !== '/' && currentPath !== 'thispc://' && !currentPath.match(/^[A-Z]:\\?$/),
+        canGoBack: history.index > 0,
+        canGoForward: history.index < history.entries.length - 1,
+        canGoUp: !!currentPath && !isRootPath(currentPath),
         openFile,
         refresh,
         deleteItem,
+        deleteItems,
         renameItem,
         createFolder,
         createFile,
-        copyToClipboard,
         pasteFromClipboard,
         showContextMenu,
-        clipboard,
-        openWith,
-        deleteItems,
-        cloudDrives,
     };
 }

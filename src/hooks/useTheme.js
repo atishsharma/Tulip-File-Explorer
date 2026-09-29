@@ -1,54 +1,31 @@
 import { useState, useEffect } from 'react';
+import { readStorage, writeStorage } from '../utils/storage';
+
+const THEMES = ['light', 'dark', 'auto'];
+const darkQuery = () => window.matchMedia?.('(prefers-color-scheme: dark)');
 
 export function useTheme() {
     const [theme, setTheme] = useState(() => {
-        // Check localStorage first
-        const saved = localStorage.getItem('tulip-theme');
-        if (saved) return saved;
-
-        // Default to auto if nothing is saved
-        return 'auto';
+        const saved = readStorage('tulip-theme', 'auto');
+        return THEMES.includes(saved) ? saved : 'auto';
     });
+    const [systemDark, setSystemDark] = useState(() => !!darkQuery()?.matches);
 
-    const [effectiveTheme, setEffectiveTheme] = useState('light');
-
-    // Determine the actual theme to apply
+    // Track the OS preference so "auto" follows it live
     useEffect(() => {
-        if (theme === 'auto') {
-            // Use system preference
-            const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            setEffectiveTheme(isDark ? 'dark' : 'light');
-        } else {
-            setEffectiveTheme(theme);
-        }
-    }, [theme]);
+        const mediaQuery = darkQuery();
+        if (!mediaQuery) return undefined;
+        const handleChange = (e) => setSystemDark(e.matches);
+        mediaQuery.addEventListener('change', handleChange);
+        return () => mediaQuery.removeEventListener('change', handleChange);
+    }, []);
 
-    // Apply the effective theme to the document
+    const effectiveTheme = theme === 'auto' ? (systemDark ? 'dark' : 'light') : theme;
+
     useEffect(() => {
-        localStorage.setItem('tulip-theme', theme);
+        writeStorage('tulip-theme', theme);
         document.documentElement.setAttribute('data-theme', effectiveTheme);
     }, [theme, effectiveTheme]);
 
-    // Listen for system theme changes (only when in auto mode)
-    useEffect(() => {
-        if (theme !== 'auto') return;
-
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const handleChange = (e) => {
-            setEffectiveTheme(e.matches ? 'dark' : 'light');
-        };
-
-        mediaQuery.addEventListener('change', handleChange);
-        return () => mediaQuery.removeEventListener('change', handleChange);
-    }, [theme]);
-
-    const toggleTheme = () => {
-        setTheme((prev) => {
-            if (prev === 'light') return 'dark';
-            if (prev === 'dark') return 'auto';
-            return 'light';
-        });
-    };
-
-    return { theme, effectiveTheme, setTheme, toggleTheme };
+    return { theme, effectiveTheme, setTheme };
 }

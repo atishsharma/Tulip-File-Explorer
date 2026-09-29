@@ -1,7 +1,10 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Breadcrumb from '../Breadcrumb/Breadcrumb';
 import FileItem from '../FileItem/FileItem';
 import ThisPC from '../ThisPC/ThisPC';
+import { useModal } from '../../hooks/useModal';
+import { calendarDaysAgo } from '../../utils/formatters';
+import { THIS_PC } from '../../utils/paths';
 import './FileExplorer.css';
 
 const SORT_OPTIONS = [
@@ -18,6 +21,8 @@ const GROUP_OPTIONS = [
     { id: 'size', label: 'Size' },
 ];
 
+const cssEscape = (value) => (window.CSS?.escape ? window.CSS.escape(value) : value.replace(/["\\]/g, '\\$&'));
+
 function FileExplorer({
     currentPath,
     items,
@@ -32,26 +37,26 @@ function FileExplorer({
     canGoUp,
     onOpenFile,
     onRefresh,
-    onDeleteItem,
     onRenameItem,
     onCreateFolder,
     onCreateFile,
     onShowContextMenu,
-    selectedItem,
     onSelectItem,
     onShowProperties,
     clipboardStatus,
-    onOpenWith,
     onPaste,
     onDeleteItems,
     specialFolders = [],
+    cloudDrives = [],
     searchQuery = '',
     onSearch,
+    shortcutsEnabled = true,
 }) {
     const [viewMode, setViewMode] = useState('grid');
     const [showHidden, setShowHidden] = useState(false);
     const [renameItem, setRenameItem] = useState(null);
     const [renameValue, setRenameValue] = useState('');
+    const [pendingRenamePath, setPendingRenamePath] = useState(null);
     const [sortBy, setSortBy] = useState('name');
     const [sortOrder, setSortOrder] = useState('asc');
     const [groupBy, setGroupBy] = useState('none');
@@ -60,64 +65,70 @@ function FileExplorer({
     const [showGroupMenu, setShowGroupMenu] = useState(false);
     const [showSizeMenu, setShowSizeMenu] = useState(false);
 
-    // Multi-select state
+    // Multi-select state (array of paths) and the anchor used for Shift range selection
     const [selectedItems, setSelectedItems] = useState([]);
+    const anchorRef = useRef(null);
 
     // Drag selection state
     const [isSelecting, setIsSelecting] = useState(false);
     const [selectionStart, setSelectionStart] = useState(null);
     const [selectionBox, setSelectionBox] = useState(null);
+    const contentRef = useRef(null);
 
     // Focus state for keyboard navigation
     const [focusedItem, setFocusedItem] = useState(null);
 
-    // Update focused item when selection changes (if single select)
-    useEffect(() => {
-        if (selectedItems.length === 1) {
-            setFocusedItem(selectedItems[0]);
+    const isThisPC = currentPath === THIS_PC;
+
+    const cancelRename = useCallback(() => {
+        setRenameItem(null);
+        setRenameValue('');
+    }, []);
+    const renameDialogRef = useModal(!!renameItem, cancelRename);
+
+    const startRename = useCallback((item) => {
+        if (!item) return;
+        setRenameItem(item);
+        setRenameValue(item.name);
+    }, []);
+
+    // Open the rename dialog for an item created a moment ago, once it shows up in the listing
+    if (pendingRenamePath) {
+        const created = items.find((i) => i.path === pendingRenamePath);
+        if (created) {
+            setPendingRenamePath(null);
+            setSelectedItems([created.path]);
+            setFocusedItem(created.path);
+            startRename(created);
         }
-    }, [selectedItems]);
+    }
 
     // Drag selection handlers
     useEffect(() => {
-        if (!isSelecting) return;
+        if (!isSelecting) return undefined;
 
         const handleMouseMove = (e) => {
             if (!selectionStart) return;
 
-            const currentX = e.clientX;
-            const currentY = e.clientY;
-
             const box = {
-                left: Math.min(selectionStart.x, currentX),
-                top: Math.min(selectionStart.y, currentY),
-                width: Math.abs(currentX - selectionStart.x),
-                height: Math.abs(currentY - selectionStart.y)
+                left: Math.min(selectionStart.x, e.clientX),
+                top: Math.min(selectionStart.y, e.clientY),
+                width: Math.abs(e.clientX - selectionStart.x),
+                height: Math.abs(e.clientY - selectionStart.y),
             };
-
             setSelectionBox(box);
 
-            // Calculate intersection
-            const items = document.querySelectorAll('[data-path]');
             const newSelected = [];
-
-            items.forEach(el => {
+            contentRef.current?.querySelectorAll('[data-path]').forEach((el) => {
                 const rect = el.getBoundingClientRect();
-                if (rect.left < box.left + box.width &&
-                    rect.right > box.left &&
-                    rect.top < box.top + box.height &&
-                    rect.bottom > box.top) {
+                if (rect.left < box.left + box.width && rect.right > box.left &&
+                    rect.top < box.top + box.height && rect.bottom > box.top) {
                     newSelected.push(el.getAttribute('data-path'));
                 }
             });
 
             if (e.ctrlKey || e.metaKey) {
-                // If Ctrl is held, add new items to existing selection
-                setSelectedItems(prev => {
-                    const set = new Set(prev);
-                    newSelected.forEach(path => set.add(path));
-                    return Array.from(set);
-                });
+                setSelectedItems((prev) => Array.from(new Set([...prev, ...newSelected])));
             } else {
                 setSelectedItems(newSelected);
             }
@@ -132,7 +143,6 @@ function FileExplorer({
 
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
-
         return () => {
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
@@ -140,15 +150,18 @@ function FileExplorer({
     }, [isSelecting, selectionStart]);
 
     // Clear selection when path changes
-    useEffect(() => {
+    const [selectionPath, setSelectionPath] = useState(currentPath);
+    if (selectionPath !== currentPath) {
+        setSelectionPath(currentPath);
         setSelectedItems([]);
-        onSelectItem?.(null);
         setFocusedItem(null);
         setIsSelecting(false);
         setSelectionBox(null);
-    }, [currentPath]);
-
-
+    }
+    useEffect(() => {
+        anchorRef.current = null;
+        onSelectItem?.(null);
+    }, [currentPath, onSelectItem]);
 
     // Close menus when clicking outside
     useEffect(() => {
@@ -161,29 +174,27 @@ function FileExplorer({
         return () => document.removeEventListener('click', handleClick);
     }, []);
 
-    // Filter, sort, and group items
+    // Filter and sort items
     const processedItems = useMemo(() => {
         let filtered = showHidden ? items : items.filter((item) => !item.isHidden);
 
-        // Apply Search Filter
         if (searchQuery && searchQuery.trim() !== '') {
             const lowerQuery = searchQuery.toLowerCase();
-            filtered = filtered.filter(item =>
-                item.name.toLowerCase().includes(lowerQuery)
-            );
+            filtered = filtered.filter((item) => item.name.toLowerCase().includes(lowerQuery));
         }
 
-        filtered = [...filtered].sort((a, b) => {
+        return [...filtered].sort((a, b) => {
             if (a.isDirectory && !b.isDirectory) return -1;
             if (!a.isDirectory && b.isDirectory) return 1;
 
-            let comparison = 0;
+            let comparison;
             switch (sortBy) {
                 case 'name':
                     comparison = a.name.localeCompare(b.name, undefined, { numeric: true });
                     break;
                 case 'date':
-                    comparison = new Date(b.modified) - new Date(a.modified);
+                    // Ascending = oldest first
+                    comparison = new Date(a.modified || 0) - new Date(b.modified || 0);
                     break;
                 case 'size':
                     comparison = (a.size || 0) - (b.size || 0);
@@ -196,115 +207,152 @@ function FileExplorer({
             }
             return sortOrder === 'asc' ? comparison : -comparison;
         });
-
-        return filtered;
     }, [items, showHidden, sortBy, sortOrder, searchQuery]);
 
-    // Keyboard shortcuts and Navigation
+    const itemsForPaths = useCallback(
+        (paths) => items.filter((i) => paths.includes(i.path)),
+        [items],
+    );
+
+    const selectOnly = useCallback((item) => {
+        setSelectedItems(item ? [item.path] : []);
+        setFocusedItem(item ? item.path : null);
+        anchorRef.current = item ? item.path : null;
+        onSelectItem?.(item || null);
+    }, [onSelectItem]);
+
+    const handleCreate = useCallback(async (kind) => {
+        const result = kind === 'folder' ? await onCreateFolder?.() : await onCreateFile?.();
+        if (result?.success && result.path) setPendingRenamePath(result.path);
+    }, [onCreateFolder, onCreateFile]);
+
+    // Keyboard shortcuts and navigation
     useEffect(() => {
         const handleKeyDown = (e) => {
-            // Ignore if input is active
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (!shortcutsEnabled || renameItem) return;
+            const tag = e.target.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
 
-            const currentIndex = focusedItem ? processedItems.findIndex(i => i.path === focusedItem) : -1;
-            const gridCols = viewMode === 'grid' ? Math.floor(document.querySelector('.file-grid')?.offsetWidth / (thumbnailSize + 16)) || 1 : 1;
+            const mod = e.ctrlKey || e.metaKey;
+
+            // Navigation shortcuts work everywhere, including This PC
+            if ((e.altKey && e.key === 'ArrowLeft') || (e.key === 'Backspace' && !mod)) {
+                e.preventDefault();
+                onNavigateBack?.();
+                return;
+            }
+            if (e.altKey && e.key === 'ArrowRight') {
+                e.preventDefault();
+                onNavigateForward?.();
+                return;
+            }
+            if (e.altKey && e.key === 'ArrowUp') {
+                e.preventDefault();
+                onNavigateUp?.();
+                return;
+            }
+            if (e.key === 'F5' || (mod && e.key === 'r')) {
+                e.preventDefault();
+                onRefresh?.();
+                return;
+            }
+            if (isThisPC) return;
+
+            const selectedObjects = itemsForPaths(selectedItems);
+            const focusedObject = processedItems.find((i) => i.path === focusedItem)
+                || (selectedObjects.length === 1 ? selectedObjects[0] : null);
+            const currentIndex = focusedItem ? processedItems.findIndex((i) => i.path === focusedItem) : -1;
 
             if (e.key === 'Escape') {
-                // Deselect all
-                setSelectedItems([]);
-                onSelectItem?.(null);
-                setFocusedItem(null);
+                selectOnly(null);
                 setSelectionBox(null);
                 setIsSelecting(false);
-            } else if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
+            } else if (mod && e.key.toLowerCase() === 'a') {
                 e.preventDefault();
-                // Select all
-                const filteredItems = showHidden ? items : items.filter((item) => !item.isHidden);
-                setSelectedItems(filteredItems.map(item => item.path));
-                if (filteredItems.length > 0) {
-                    onSelectItem?.(filteredItems[filteredItems.length - 1]);
-                    setFocusedItem(filteredItems[filteredItems.length - 1].path);
+                // Select what is visible (respects search and hidden-file filter)
+                setSelectedItems(processedItems.map((item) => item.path));
+                if (processedItems.length > 0) {
+                    const last = processedItems[processedItems.length - 1];
+                    onSelectItem?.(last);
+                    setFocusedItem(last.path);
                 }
             } else if (e.key === 'Delete') {
                 e.preventDefault();
-                if (selectedItems.length > 0) {
-                    const itemsToDelete = items.filter(i => selectedItems.includes(i.path));
-                    if (itemsToDelete.length > 0) {
-                        onDeleteItems?.(itemsToDelete);
-                    }
-                }
-            } else if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+                if (selectedObjects.length > 0) onDeleteItems?.(selectedObjects);
+            } else if (mod && e.key.toLowerCase() === 'c') {
                 e.preventDefault();
-                if (selectedItems.length > 0 && window.electronAPI) {
-                    window.electronAPI.clipboardCopy(selectedItems); // Pass all selected paths
-                }
-            } else if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+                if (selectedItems.length > 0) window.electronAPI?.clipboardCopy(selectedItems);
+            } else if (mod && e.key.toLowerCase() === 'x') {
                 e.preventDefault();
-                if (selectedItems.length > 0 && window.electronAPI) {
-                    window.electronAPI.clipboardCut(selectedItems);
-                }
-            } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                if (selectedItems.length > 0) window.electronAPI?.clipboardCut(selectedItems);
+            } else if (mod && e.key.toLowerCase() === 'v') {
                 e.preventDefault();
                 onPaste?.();
+            } else if (e.key === 'F2') {
+                e.preventDefault();
+                if (focusedObject) startRename(focusedObject);
+            } else if (e.altKey && e.key === 'Enter') {
+                e.preventDefault();
+                if (focusedObject) onShowProperties?.(focusedObject);
+            } else if (e.key === 'Enter') {
+                // Buttons handle Enter themselves; only act when focus is elsewhere
+                if (e.target.closest?.('[data-path]')) return;
+                e.preventDefault();
+                if (focusedObject) onOpenFile?.(focusedObject);
             } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
                 e.preventDefault();
+                if (processedItems.length === 0) return;
 
-                let nextIndex = currentIndex;
+                const gridEl = contentRef.current?.querySelector('.file-grid');
+                const gridCols = viewMode === 'grid'
+                    ? Math.max(1, Math.floor((gridEl?.offsetWidth || 0) / (thumbnailSize + 32 + 8)))
+                    : 1;
                 const maxIndex = processedItems.length - 1;
-
-                if (currentIndex === -1) {
-                    nextIndex = 0; // Start at beginning if nothing focused
-                } else {
+                let nextIndex = 0;
+                if (currentIndex !== -1) {
                     if (e.key === 'ArrowRight') nextIndex = Math.min(currentIndex + 1, maxIndex);
                     else if (e.key === 'ArrowLeft') nextIndex = Math.max(currentIndex - 1, 0);
-                    else if (e.key === 'ArrowDown') nextIndex = Math.min(currentIndex + (viewMode === 'grid' ? gridCols : 1), maxIndex);
-                    else if (e.key === 'ArrowUp') nextIndex = Math.max(currentIndex - (viewMode === 'grid' ? gridCols : 1), 0);
+                    else if (e.key === 'ArrowDown') nextIndex = Math.min(currentIndex + gridCols, maxIndex);
+                    else nextIndex = Math.max(currentIndex - gridCols, 0);
                 }
 
-                if (processedItems[nextIndex]) {
-                    const nextItem = processedItems[nextIndex];
-                    setFocusedItem(nextItem.path);
+                const nextItem = processedItems[nextIndex];
+                setFocusedItem(nextItem.path);
 
-                    // Selection logic
-                    if (e.shiftKey) {
-                        const firstSelected = selectedItems.length > 0 ? selectedItems[0] : (focusedItem || nextItem.path);
-                        const anchorIndex = processedItems.findIndex(i => i.path === firstSelected);
-                        // If we can't find anchor, use nextIndex
-                        const anchor = anchorIndex !== -1 ? anchorIndex : nextIndex;
-
-                        const start = Math.min(anchor, nextIndex);
-                        const end = Math.max(anchor, nextIndex);
-                        const range = processedItems.slice(start, end + 1).map(i => i.path);
-                        setSelectedItems(range);
-                    } else if (e.ctrlKey) {
-                        // Just move focus (done above by setFocusedItem)
-                    } else {
-                        // Single select
-                        setSelectedItems([nextItem.path]);
-                        onSelectItem?.(nextItem);
-                    }
-
-                    // Scroll into view
-                    requestAnimationFrame(() => {
-                        const el = document.querySelector(`[data-path="${nextItem.path}"]`);
-                        el?.scrollIntoView({ block: 'nearest' });
-                    });
+                if (e.shiftKey) {
+                    const anchorIndex = processedItems.findIndex((i) => i.path === anchorRef.current);
+                    const anchor = anchorIndex !== -1 ? anchorIndex : nextIndex;
+                    if (anchorIndex === -1) anchorRef.current = nextItem.path;
+                    const range = processedItems
+                        .slice(Math.min(anchor, nextIndex), Math.max(anchor, nextIndex) + 1)
+                        .map((i) => i.path);
+                    setSelectedItems(range);
+                } else if (!mod) {
+                    setSelectedItems([nextItem.path]);
+                    anchorRef.current = nextItem.path;
+                    onSelectItem?.(nextItem);
                 }
-            } else if (e.key === ' ' && e.ctrlKey) {
+
+                requestAnimationFrame(() => {
+                    const el = contentRef.current?.querySelector(`[data-path="${cssEscape(nextItem.path)}"]`);
+                    el?.scrollIntoView({ block: 'nearest' });
+                    el?.focus({ preventScroll: true });
+                });
+            } else if (e.key === ' ' && mod) {
                 e.preventDefault();
                 if (focusedItem) {
-                    // Toggle selection of focused item
-                    setSelectedItems(prev => {
-                        if (prev.includes(focusedItem)) return prev.filter(p => p !== focusedItem);
-                        return [...prev, focusedItem];
-                    });
+                    setSelectedItems((prev) => (prev.includes(focusedItem)
+                        ? prev.filter((p) => p !== focusedItem)
+                        : [...prev, focusedItem]));
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [items, showHidden, onSelectItem, selectedItems, onDeleteItem, onPaste, focusedItem, processedItems, viewMode, thumbnailSize, onDeleteItems]);
+    }, [shortcutsEnabled, renameItem, isThisPC, itemsForPaths, selectedItems, processedItems, focusedItem,
+        viewMode, thumbnailSize, onSelectItem, onDeleteItems, onPaste, onOpenFile, onShowProperties,
+        onNavigateBack, onNavigateForward, onNavigateUp, onRefresh, selectOnly, startRename]);
 
     // Group items
     const groupedItems = useMemo(() => {
@@ -313,6 +361,7 @@ function FileExplorer({
         }
 
         const groups = {};
+        const now = new Date();
 
         processedItems.forEach((item) => {
             let groupKey;
@@ -323,33 +372,30 @@ function FileExplorer({
                         groupKey = 'Folders';
                     } else {
                         const ext = (item.extension || '').toLowerCase();
-                        if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'].includes(ext)) {
-                            groupKey = 'Images';
-                        } else if (['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.webm'].includes(ext)) {
-                            groupKey = 'Videos';
-                        } else if (['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a'].includes(ext)) {
-                            groupKey = 'Audio';
-                        } else if (['.doc', '.docx', '.pdf', '.txt', '.rtf', '.odt'].includes(ext)) {
-                            groupKey = 'Documents';
-                        } else if (['.zip', '.rar', '.7z', '.tar', '.gz'].includes(ext)) {
-                            groupKey = 'Archives';
-                        } else {
-                            groupKey = 'Other';
-                        }
+                        if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'].includes(ext)) groupKey = 'Images';
+                        else if (['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.webm'].includes(ext)) groupKey = 'Videos';
+                        else if (['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a'].includes(ext)) groupKey = 'Audio';
+                        else if (['.doc', '.docx', '.pdf', '.txt', '.rtf', '.odt'].includes(ext)) groupKey = 'Documents';
+                        else if (['.zip', '.rar', '.7z', '.tar', '.gz'].includes(ext)) groupKey = 'Archives';
+                        else groupKey = 'Other';
                     }
                     break;
-                case 'date':
-                    const date = new Date(item.modified);
-                    const today = new Date();
-                    const diffDays = Math.floor((today - date) / (1000 * 60 * 60 * 24));
-                    if (diffDays === 0) groupKey = 'Today';
-                    else if (diffDays === 1) groupKey = 'Yesterday';
-                    else if (diffDays < 7) groupKey = 'This Week';
-                    else if (diffDays < 30) groupKey = 'This Month';
-                    else if (diffDays < 365) groupKey = 'This Year';
+                case 'date': {
+                    if (!item.modified) {
+                        groupKey = 'Unknown';
+                        break;
+                    }
+                    const days = calendarDaysAgo(new Date(item.modified), now);
+                    if (days < 0) groupKey = 'Future';
+                    else if (days === 0) groupKey = 'Today';
+                    else if (days === 1) groupKey = 'Yesterday';
+                    else if (days < 7) groupKey = 'This Week';
+                    else if (days < 30) groupKey = 'This Month';
+                    else if (days < 365) groupKey = 'This Year';
                     else groupKey = 'Older';
                     break;
-                case 'size':
+                }
+                case 'size': {
                     const size = item.size || 0;
                     if (item.isDirectory) groupKey = 'Folders';
                     else if (size === 0) groupKey = 'Empty';
@@ -359,13 +405,12 @@ function FileExplorer({
                     else if (size < 1024 * 1024 * 1024) groupKey = 'Large (< 1 GB)';
                     else groupKey = 'Huge (> 1 GB)';
                     break;
+                }
                 default:
                     groupKey = 'All';
             }
 
-            if (!groups[groupKey]) {
-                groups[groupKey] = [];
-            }
+            if (!groups[groupKey]) groups[groupKey] = [];
             groups[groupKey].push(item);
         });
 
@@ -373,137 +418,98 @@ function FileExplorer({
     }, [processedItems, groupBy]);
 
     const handleSelect = useCallback((item, e) => {
-        setFocusedItem(item.path); // Update focus on click
+        setFocusedItem(item.path);
 
         if (e?.ctrlKey || e?.metaKey) {
-            // Toggle selection
-            setSelectedItems(prev => {
-                if (prev.includes(item.path)) {
-                    return prev.filter(p => p !== item.path);
-                } else {
-                    return [...prev, item.path];
-                }
-            });
-        } else if (e?.shiftKey && selectedItems.length > 0) {
-            // Range selection
-            const lastSelected = selectedItems[selectedItems.length - 1]; // This is imprecise as 'last', but ok for MVP
-            // Better to use a dedicated anchor ref, but focusedItem might serve
-
-            const lastIndex = processedItems.findIndex(i => i.path === lastSelected);
-            const currentIndex = processedItems.findIndex(i => i.path === item.path);
-            const start = Math.min(lastIndex, currentIndex);
-            const end = Math.max(lastIndex, currentIndex);
-            const range = processedItems.slice(start, end + 1).map(i => i.path);
-            setSelectedItems(range); // Should we merge or replace? Standard is replace for shift-click usually.
+            setSelectedItems((prev) => (prev.includes(item.path)
+                ? prev.filter((p) => p !== item.path)
+                : [...prev, item.path]));
+            anchorRef.current = item.path;
+        } else if (e?.shiftKey && anchorRef.current) {
+            const anchorIndex = processedItems.findIndex((i) => i.path === anchorRef.current);
+            const currentIndex = processedItems.findIndex((i) => i.path === item.path);
+            if (anchorIndex === -1) {
+                setSelectedItems([item.path]);
+                anchorRef.current = item.path;
+            } else {
+                setSelectedItems(processedItems
+                    .slice(Math.min(anchorIndex, currentIndex), Math.max(anchorIndex, currentIndex) + 1)
+                    .map((i) => i.path));
+            }
         } else {
-            // Single selection
             setSelectedItems([item.path]);
+            anchorRef.current = item.path;
         }
         onSelectItem?.(item);
-    }, [selectedItems, processedItems, onSelectItem]);
+    }, [processedItems, onSelectItem]);
 
     const handleContextMenu = useCallback(async (e, item) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!window.electronAPI) return;
 
-        // If right-click on an item that is NOT selected, select it (exclusive)
-        // If right-click on an item that IS selected, keep selection!
+        // Right-clicking inside the selection acts on the whole selection;
+        // right-clicking anything else acts on that item alone (and selects it)
+        let targets = [];
         if (item) {
-            if (!selectedItems.includes(item.path)) {
-                setSelectedItems([item.path]);
-                onSelectItem?.(item);
+            if (selectedItems.includes(item.path)) {
+                targets = selectedItems;
                 setFocusedItem(item.path);
+            } else {
+                targets = [item.path];
+                selectOnly(item);
             }
-            // If already selected, do nothing to selection
         }
 
         const menuType = item ? (item.isDirectory ? 'folder' : 'file') : 'background';
         const action = await onShowContextMenu?.(menuType, item);
-
         if (!action) return;
 
-        // Use selectedItems for bulk actions if applicable
-        // Note: 'item' param here is the clicked item.
-        // Copy/Cut/Delete should operate on 'selectedItems' if 'item' is inside 'selectedItems'.
-        // If we right-clicked outside selection (handled above), we selected it, so 'selectedItems' is correct.
-
-        const targets = selectedItems.length > 0 ? selectedItems : (item ? [item.path] : []);
-
-        if (action === 'open') {
-            onOpenFile?.(item); // Open usually opens the clicked item, not all selected
-        } else if (action === 'open-new') {
-            onOpenFile?.(item);
-        } else if (action === 'open-with') {
-            onOpenWith?.(item);
-        } else if (action === 'cut') {
-            if (window.electronAPI && targets.length > 0) {
-                await window.electronAPI.clipboardCut(targets);
-            }
-        } else if (action === 'copy') {
-            if (window.electronAPI && targets.length > 0) {
-                await window.electronAPI.clipboardCopy(targets);
-            }
-        } else if (action === 'delete') {
-            if (targets.length > 0) {
-                // We need object items for onDeleteItems usually?
-                // onDeleteItems expects objects? Prop is passed 'deleteItems' from useFileSystem which expects objects... 
-                // Wait, useFileSystem's deleteItems implementation:
-                // const deleteItems = useCallback(async (itemsToDelete) => { ... item.path ... }
-                // So it expects an array of objects { path: ... }.
-
-                // We have paths in selectedItems. need to find objects.
-                const itemsToDelete = items.filter(i => targets.includes(i.path));
-                onDeleteItems?.(itemsToDelete);
-            }
-        } else if (action === 'rename') {
-            setRenameItem(item); // Rename works on single item usually
-            setRenameValue(item.name);
-        } else if (action === 'properties') {
-            onShowProperties?.(item); // Properties usually for clicked item or combined? MVP: clicked
-        } else if (action === 'new-folder') {
-            onCreateFolder?.('New Folder');
-        } else if (action === 'new-file') {
-            onCreateFile?.('New Text Document.txt');
-        } else if (action === 'paste') {
-            onPaste?.();
-        } else if (action === 'refresh') {
-            onRefresh?.();
+        switch (action) {
+            case 'open':
+                onOpenFile?.(item);
+                break;
+            case 'cut':
+                if (targets.length > 0) await window.electronAPI.clipboardCut(targets);
+                break;
+            case 'copy':
+                if (targets.length > 0) await window.electronAPI.clipboardCopy(targets);
+                break;
+            case 'delete':
+                if (targets.length > 0) onDeleteItems?.(itemsForPaths(targets));
+                break;
+            case 'rename':
+                startRename(item);
+                break;
+            case 'new-folder':
+                handleCreate('folder');
+                break;
+            case 'new-file':
+                handleCreate('file');
+                break;
+            case 'paste':
+                onPaste?.();
+                break;
+            case 'refresh':
+                onRefresh?.();
+                break;
+            default:
+                break;
         }
-    }, [currentPath, selectedItems, processedItems, onOpenFile, onDeleteItem, onDeleteItems, onShowProperties, onRefresh, onCreateFolder, onCreateFile, onShowContextMenu, onSelectItem, onOpenWith, onPaste, items]);
+    }, [selectedItems, selectOnly, onShowContextMenu, onOpenFile, onDeleteItems, itemsForPaths,
+        startRename, handleCreate, onPaste, onRefresh]);
 
-    // Background handlers
     const handleBackgroundContextMenu = (e) => {
-        if (e.target.classList.contains('file-grid') ||
-            e.target.classList.contains('explorer-content') ||
-            e.target.classList.contains('file-table') ||
-            e.target.classList.contains('group-content')) {
-
-            // Only clear selection if not right-clicking on an item (handled by bubbling check, but here we are on background)
-            // Actually context menu on background should NOT clear selection? Windows does not clear selection on background right click?
-            // Windows DOES NOT clear selection on background context menu.
-            // Mac DOES clear selection.
-            // Let's stick to current behavior: Select None
-            setSelectedItems([]);
-
-            // Pass 'background' menu type
-            handleContextMenu(e, null);
-        }
+        if (e.target.closest('[data-path]') || isThisPC) return;
+        selectOnly(null);
+        handleContextMenu(e, null);
     };
 
-    // We need to handle the "action" result for new-folder/file from background menu
-    /* 
-       Note: handleContextMenu logic above awaits the action. 
-       We need to add the handlers there (lines 300+).
-    */
-
     const handleMouseDown = useCallback((e) => {
-        // Only left click (0) and on background
-        if (e.button !== 0) return;
-
-        // Check targets to avoid interfering with items or UI
-        if (e.target.closest('.file-item-grid') || e.target.closest('.file-item-row') ||
-            e.target.closest('.toolbar-btn') || e.target.closest('.preview-panel') ||
-            e.target.closest('.dropdown-wrapper') || e.target.closest('.rename-dialog')) {
+        // Only left click on background
+        if (e.button !== 0 || isThisPC) return;
+        if (e.target.closest('[data-path]') || e.target.closest('.toolbar-btn') || e.target.closest('.preview-panel') ||
+            e.target.closest('.dropdown-wrapper') || e.target.closest('.rename-dialog') || e.target.closest('button')) {
             return;
         }
 
@@ -511,30 +517,35 @@ function FileExplorer({
         setSelectionStart({ x: e.clientX, y: e.clientY });
         setSelectionBox({ left: e.clientX, top: e.clientY, width: 0, height: 0 });
 
-        // Clear selection if not modified key is pressed
         if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
-            setSelectedItems([]);
-            onSelectItem?.(null);
+            selectOnly(null);
         }
-
-        // Prevent text selection
         document.body.style.userSelect = 'none';
-    }, [onSelectItem]);
+    }, [isThisPC, selectOnly]);
 
+    const renameSubmitting = useRef(false);
     const handleRenameSubmit = async (e) => {
         e.preventDefault();
-        if (renameItem && renameValue.trim() && renameValue !== renameItem.name) {
-            await onRenameItem?.(renameItem, renameValue.trim());
+        if (renameSubmitting.current) return;
+        const target = renameItem;
+        const value = renameValue.trim();
+        if (target && value && value !== target.name) {
+            renameSubmitting.current = true;
+            try {
+                const result = await onRenameItem?.(target, value);
+                // Keep the dialog open on failure so the name can be corrected
+                if (result && !result.success) return;
+            } finally {
+                renameSubmitting.current = false;
+            }
         }
-        setRenameItem(null);
-        setRenameValue('');
+        cancelRename();
     };
 
-    const handleRenameKeyDown = (e) => {
-        if (e.key === 'Escape') {
-            setRenameItem(null);
-            setRenameValue('');
-        }
+    // Preselect the name without its extension, like other file managers
+    const handleRenameFocus = (e) => {
+        const dot = renameItem && !renameItem.isDirectory ? renameValue.lastIndexOf('.') : -1;
+        e.target.setSelectionRange(0, dot > 0 ? dot : renameValue.length);
     };
 
     const toggleSort = (newSortBy) => {
@@ -550,7 +561,7 @@ function FileExplorer({
     const renderFileItems = (itemList) => {
         if (viewMode === 'grid') {
             return (
-                <div className="file-grid" style={{ '--thumb-size': `${thumbnailSize}px` }}>
+                <div className="file-grid" role="listbox" aria-multiselectable="true" style={{ '--thumb-size': `${thumbnailSize}px` }}>
                     {itemList.map((item) => (
                         <FileItem
                             key={item.path}
@@ -569,21 +580,19 @@ function FileExplorer({
             );
         }
         return (
-            <table className="file-table">
+            <table className="file-table" aria-multiselectable="true">
                 <thead>
                     <tr>
-                        <th className="table-header" onClick={() => toggleSort('name')}>
-                            Name {sortBy === 'name' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th className="table-header" onClick={() => toggleSort('type')}>
-                            Type {sortBy === 'type' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th className="table-header size-header" onClick={() => toggleSort('size')}>
-                            Size {sortBy === 'size' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th className="table-header" onClick={() => toggleSort('date')}>
-                            Modified {sortBy === 'date' && (sortOrder === 'asc' ? '↑' : '↓')}
-                        </th>
+                        {[['name', 'Name'], ['type', 'Type'], ['size', 'Size'], ['date', 'Modified']].map(([id, label]) => (
+                            <th
+                                key={id}
+                                className={`table-header ${id === 'size' ? 'size-header' : ''}`}
+                                onClick={() => toggleSort(id)}
+                                aria-sort={sortBy === id ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'}
+                            >
+                                {label} {sortBy === id && (sortOrder === 'asc' ? '↑' : '↓')}
+                            </th>
+                        ))}
                     </tr>
                 </thead>
                 <tbody>
@@ -611,22 +620,22 @@ function FileExplorer({
             {/* Toolbar */}
             <div className="explorer-toolbar">
                 <div className="toolbar-nav">
-                    <button className="toolbar-btn" onClick={onNavigateBack} disabled={!canGoBack} title="Back">
+                    <button className="toolbar-btn" onClick={onNavigateBack} disabled={!canGoBack} title="Back (Alt+Left)" aria-label="Back">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M19 12H5M12 19l-7-7 7-7" />
                         </svg>
                     </button>
-                    <button className="toolbar-btn" onClick={onNavigateForward} disabled={!canGoForward} title="Forward">
+                    <button className="toolbar-btn" onClick={onNavigateForward} disabled={!canGoForward} title="Forward (Alt+Right)" aria-label="Forward">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M5 12h14M12 5l7 7-7 7" />
                         </svg>
                     </button>
-                    <button className="toolbar-btn" onClick={onNavigateUp} disabled={!canGoUp} title="Up">
+                    <button className="toolbar-btn" onClick={onNavigateUp} disabled={!canGoUp} title="Up (Alt+Up)" aria-label="Up">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M12 19V5M5 12l7-7 7 7" />
                         </svg>
                     </button>
-                    <button className="toolbar-btn" onClick={onRefresh} title="Refresh">
+                    <button className="toolbar-btn" onClick={() => onRefresh?.()} title="Refresh (F5)" aria-label="Refresh">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M23 4v6h-6M1 20v-6h6" />
                             <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
@@ -638,7 +647,7 @@ function FileExplorer({
 
                 <div className="toolbar-actions">
                     {/* Search Bar */}
-                    <div className={`search-toolbar-wrapper ${currentPath === 'thispc://' ? 'disabled' : ''}`}>
+                    <div className={`search-toolbar-wrapper ${isThisPC ? 'disabled' : ''}`}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="search-icon">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -647,9 +656,10 @@ function FileExplorer({
                             type="text"
                             className="search-toolbar-input"
                             placeholder="Search..."
+                            aria-label="Search this folder"
                             value={searchQuery}
                             onChange={(e) => onSearch(e.target.value)}
-                            disabled={currentPath === 'thispc://'}
+                            disabled={isThisPC}
                         />
                     </div>
 
@@ -658,6 +668,8 @@ function FileExplorer({
                         className={`toolbar-btn ${showHidden ? 'active' : ''}`}
                         onClick={() => setShowHidden(!showHidden)}
                         title={showHidden ? 'Hide hidden files' : 'Show hidden files'}
+                        aria-label={showHidden ? 'Hide hidden files' : 'Show hidden files'}
+                        aria-pressed={showHidden}
                     >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             {showHidden ? (
@@ -679,7 +691,7 @@ function FileExplorer({
                             <button
                                 className={`toolbar-btn ${viewMode === 'grid' ? 'active' : ''}`}
                                 onClick={() => setViewMode('grid')}
-                                title="Grid view"
+                                title="Grid view" aria-label="Grid view"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <rect x="3" y="3" width="7" height="7" />
@@ -691,7 +703,7 @@ function FileExplorer({
                             <button
                                 className={`toolbar-btn ${viewMode === 'list' ? 'active' : ''}`}
                                 onClick={() => setViewMode('list')}
-                                title="List view"
+                                title="List view" aria-label="List view"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <line x1="8" y1="6" x2="21" y2="6" />
@@ -714,7 +726,7 @@ function FileExplorer({
                                 setShowGroupMenu(false);
                                 setShowSizeMenu(false);
                             }}
-                            title="Sort by"
+                            title="Sort by" aria-label="Sort by"
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M3 6h18M6 12h12M9 18h6" />
@@ -746,7 +758,7 @@ function FileExplorer({
                                 setShowSortMenu(false);
                                 setShowSizeMenu(false);
                             }}
-                            title="Group by"
+                            title="Group by" aria-label="Group by"
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M4 6h16M4 12h16M4 18h16" />
@@ -776,7 +788,7 @@ function FileExplorer({
                             <button
                                 className={`toolbar-btn ${showSizeMenu ? 'active' : ''}`}
                                 onClick={() => { setShowSizeMenu(!showSizeMenu); setShowSortMenu(false); setShowGroupMenu(false); }}
-                                title="Thumbnail size"
+                                title="Thumbnail size" aria-label="Thumbnail size"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <rect x="2" y="7" width="20" height="10" rx="2" />
@@ -794,6 +806,7 @@ function FileExplorer({
                                             value={thumbnailSize}
                                             onChange={(e) => setThumbnailSize(Number(e.target.value))}
                                             className="size-slider"
+                                            aria-label="Thumbnail size"
                                         />
                                         <span className="size-label">{thumbnailSize}px</span>
                                     </div>
@@ -824,10 +837,10 @@ function FileExplorer({
             {/* Content */}
             <div
                 className="explorer-content"
+                ref={contentRef}
                 onContextMenu={handleBackgroundContextMenu}
                 onMouseDown={handleMouseDown}
             >
-                {/* Selection Box */}
                 {selectionBox && (
                     <div
                         className="selection-box"
@@ -835,7 +848,7 @@ function FileExplorer({
                             left: selectionBox.left,
                             top: selectionBox.top,
                             width: selectionBox.width,
-                            height: selectionBox.height
+                            height: selectionBox.height,
                         }}
                     />
                 )}
@@ -846,27 +859,28 @@ function FileExplorer({
                         <span>Loading...</span>
                     </div>
                 ) : error ? (
-                    <div className="explorer-error">
+                    <div className="explorer-error" role="alert">
                         <span className="error-icon">⚠️</span>
                         <h3>Unable to access folder</h3>
                         <p>{error}</p>
-                        <button className="retry-btn" onClick={onRefresh}>Try Again</button>
+                        <button className="retry-btn" onClick={() => onRefresh?.()}>Try Again</button>
                     </div>
-                ) : currentPath === 'thispc://' ? (
+                ) : isThisPC ? (
                     <ThisPC
-                        drives={items}
-                        cloudDrives={[]}
+                        items={items}
+                        cloudDrives={cloudDrives}
                         onNavigate={onNavigate}
                         viewMode={viewMode}
                         onShowContextMenu={onShowContextMenu}
                         onShowProperties={onShowProperties}
+                        onRefresh={() => onRefresh?.()}
                         specialFolders={specialFolders}
                     />
                 ) : processedItems.length === 0 ? (
                     <div className="explorer-empty">
                         <span className="empty-icon">📂</span>
-                        <h3>This folder is empty</h3>
-                        <p>There are no files or folders to display</p>
+                        <h3>{searchQuery ? 'No matching items' : 'This folder is empty'}</h3>
+                        <p>{searchQuery ? 'Try a different search term' : 'There are no files or folders to display'}</p>
                     </div>
                 ) : groupBy === 'none' ? (
                     renderFileItems(processedItems)
@@ -904,19 +918,28 @@ function FileExplorer({
 
             {/* Rename Dialog */}
             {renameItem && (
-                <div className="rename-overlay" onClick={() => setRenameItem(null)}>
-                    <form className="rename-dialog card" onClick={(e) => e.stopPropagation()} onSubmit={handleRenameSubmit}>
-                        <h3>Rename</h3>
+                <div className="rename-overlay" onClick={cancelRename}>
+                    <form
+                        ref={renameDialogRef}
+                        className="rename-dialog card"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="rename-dialog-title"
+                        onClick={(e) => e.stopPropagation()}
+                        onSubmit={handleRenameSubmit}
+                    >
+                        <h3 id="rename-dialog-title">Rename</h3>
                         <input
                             type="text"
                             value={renameValue}
                             onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={handleRenameKeyDown}
+                            onFocus={handleRenameFocus}
                             autoFocus
                             className="rename-input"
+                            aria-label="New name"
                         />
                         <div className="rename-actions">
-                            <button type="button" className="rename-btn cancel" onClick={() => setRenameItem(null)}>Cancel</button>
+                            <button type="button" className="rename-btn cancel" onClick={cancelRename}>Cancel</button>
                             <button type="submit" className="rename-btn confirm">Rename</button>
                         </div>
                     </form>

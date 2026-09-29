@@ -4,7 +4,7 @@ import { formatDriveCapacity, getDriveUsagePercent } from '../../utils/formatter
 import { getRcloneProviderInfo, capitalizeFirst } from '../../utils/rcloneProviders';
 import './Sidebar.css';
 
-function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavigate, onShowContextMenu, onAddCloudDrive, onRefresh }) {
+function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavigate, onShowContextMenu, onAddCloudDrive }) {
     const [platform, setPlatform] = useState(null);
 
     useEffect(() => {
@@ -16,40 +16,17 @@ function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavi
         }
         getPlatform();
     }, []);
-    const handleDriveContextMenu = async (e, drive) => {
+    // Pass full drive info so Properties can show capacity; App handles properties/unmount
+    const handleDriveContextMenu = async (e, drive, menuType) => {
         e.preventDefault();
-        if (onShowContextMenu) {
-            const action = await onShowContextMenu('drive', { path: drive.path, name: drive.name });
-            if (action === 'open') {
-                onNavigate(drive.path);
-            }
-        }
-    };
-
-    const handleCloudDriveContextMenu = async (e, drive) => {
-        e.preventDefault();
-        if (onShowContextMenu) {
-            const action = await onShowContextMenu('cloud-drive', { path: drive.path, name: drive.name });
-            if (action === 'open') {
-                onNavigate(drive.path);
-            } else if (action === 'unmount') {
-                try {
-                    const result = await window.electronAPI.rclone.unmount(drive.name);
-                    if (result.success) {
-                        // Trigger a refresh to update the sidebar
-                        if (onRefresh) {
-                            onRefresh();
-                        }
-                    }
-                } catch (error) {
-                    console.error('Failed to unmount:', error);
-                }
-            }
-        }
+        if (!onShowContextMenu) return;
+        const item = { ...drive, isDrive: true, isDirectory: true, size: drive.total, isCloud: menuType === 'cloud-drive' };
+        const action = await onShowContextMenu(menuType, item);
+        if (action === 'open') onNavigate(drive.path);
     };
 
     return (
-        <aside className="sidebar glass-panel">
+        <aside className="sidebar glass-panel" aria-label="Navigation">
             {/* Quick Access */}
             <section className="sidebar-section">
                 <h3 className="sidebar-heading">Quick Access</h3>
@@ -100,17 +77,17 @@ function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavi
             <section className="sidebar-section">
                 <h3 className="sidebar-heading">Drives</h3>
                 <nav className="sidebar-nav">
-                    {drives.map((drive, index) => (
+                    {drives.filter((drive) => !drive.isCloud).map((drive, index) => (
                         <button
                             key={drive.path || index}
                             className={`sidebar-item drive-item ${currentPath === drive.path ? 'active' : ''}`}
                             onClick={() => onNavigate(drive.path)}
-                            onContextMenu={(e) => handleDriveContextMenu(e, drive)}
+                            onContextMenu={(e) => handleDriveContextMenu(e, drive, 'drive')}
                         >
                             <span className="sidebar-icon">{getDriveIcon(drive)}</span>
                             <div className="drive-info">
                                 <span className="sidebar-label">{drive.name}</span>
-                                {drive.total && (
+                                {!!drive.total && (
                                     <div className="drive-capacity">
                                         <div className="drive-bar">
                                             <div
@@ -149,7 +126,7 @@ function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavi
                                     key={drive.path || index}
                                     className={`sidebar-item drive-item ${currentPath === drive.path ? 'active' : ''}`}
                                     onClick={() => onNavigate(drive.path)}
-                                    onContextMenu={(e) => handleCloudDriveContextMenu(e, drive)}
+                                    onContextMenu={(e) => handleDriveContextMenu(e, drive, 'cloud-drive')}
                                 >
                                     {isImage ? (
                                         <img
@@ -165,7 +142,7 @@ function Sidebar({ specialFolders, drives, cloudDrives = [], currentPath, onNavi
                                             <span className="sidebar-label">{capitalizeFirst(drive.name)}</span>
                                             <span className="cloud-drive-provider">({providerInfo.name})</span>
                                         </div>
-                                        {drive.total && (
+                                        {!!drive.total && (
                                             <div className="drive-capacity">
                                                 <div className="drive-bar">
                                                     <div

@@ -11,28 +11,29 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 
 ## ✨ Features
 
-- **Standard File Operations**: Open, Cut, Copy, Paste, Delete (to Trash), Rename, New Folder, New File.
-- **Glassmorphism UI**: Stunning, responsive interface aimed at replicating the feel of modern iOS/Windows 11 design.
-- **Dual Application Modes**: Seamlessly switch between **Light** and **Dark** themes.
-- **Preview Panel**: Instant preview for Images, Videos, Audio, PDFs, and Code files with syntax highlighting.
-- **Rich Thumbnails**: High-performance thumbnail generation for images and videos with caching.
+- **Standard File Operations**: Open, Cut, Copy, Paste, Delete (to Trash), Rename, New Folder, New File, Compress to ZIP.
+- **Safe by default**: never overwrites existing files on rename, create or paste (conflicts get a "name (2)" suffix).
+- **Glassmorphism UI**: Responsive interface inspired by modern iOS/Windows 11 design.
+- **Themes**: Light, Dark and Auto (follows the OS), plus accent colors.
+- **Preview Panel**: Images, video, audio and plain-text/code files (first 50 KB). PDFs and other types open in their default app.
+- **Thumbnails**: Cached image thumbnails. Video thumbnails on Windows/macOS via the OS; on Linux when `ffmpeg` is installed.
 - **Advanced Sorting & Grouping**:
   - Sort by Name, Date, Size, Type.
   - Group by Type, Date, Size (Windows-style grouping).
-- **Navigation**: Full history support (Back, Forward, Up), Breadcrumbs, and Quick Access sidebar.
+- **Navigation**: Full history (Back, Forward, Up), editable breadcrumbs, Quick Access sidebar.
+- **Cloud Drives**: Mount rclone remotes (Google Drive, OneDrive, Dropbox, …); mounts are restored on next launch.
 - **Keyboard Shortcuts**:
-  - `Ctrl + C` / `Ctrl + V` / `Ctrl + X` for clipboard operations.
-  - `Delete` for deleting items.
-  - `F2` to Rename.
-  - `Alt + Enter` for Properties.
-  - `Ctrl + A` to Select All.
-  - `Shift + Arrow Keys` for range selection.
-- **Cross-Platform**: Builds for Windows, Linux (AppImage), and macOS.
+  - `Ctrl + C` / `Ctrl + X` / `Ctrl + V` for clipboard operations (also interoperates with the OS file clipboard on Linux).
+  - `Delete` to move to Trash.
+  - `F2` to Rename, `Alt + Enter` for Properties, `Enter` to open.
+  - `Ctrl + A` to Select All, `Shift + Arrow Keys` / `Shift + Click` for range selection.
+  - `Alt + ←` / `Backspace` Back, `Alt + →` Forward, `Alt + ↑` Up, `F5` Refresh.
+- **Cross-Platform**: Builds for Windows (zip), macOS (zip) and Linux (deb, AppImage).
 
 ## 🛠 Tech Stack
 
-- **Frontend**: React.js 18 (Vite 5)
-- **Backend/Shell**: Electron 28
+- **Frontend**: React.js 18 (Vite 8)
+- **Backend/Shell**: Electron 44
 - **Styling**: Pure CSS (Variables, Glassmorphism) - No CSS frameworks used!
 - **State Management**: React Hooks
 - **Build Tool**: Electron Builder
@@ -41,10 +42,11 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
+- Node.js 22.12 or higher
 - npm or yarn
 - WinFsp For Rclone Mount On Windows
 - Rclone For Cloud Drives
+- Optional: FFmpeg (`ffprobe`/`ffmpeg`) for video details and Linux video thumbnails
 
 ### 📝 Release Notes
  - First Release : 09 January 2026
@@ -70,15 +72,23 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
     npm run electron:dev
     ```
 
+### Checks
+
+```bash
+npm run lint   # ESLint
+npm test       # Vitest unit tests
+npm run check  # lint + test + build
+```
+
 ### Building for Production
 
-To create a distributable (exe/dmg/deb):
+To create distributables (zip / deb / AppImage):
 
 ```bash
 npm run dist
 ```
 
-Build artifacts will be stored in the `dist` directory.
+Packaged apps are written to the `release` directory (`dist` holds the compiled renderer).
 
 ## 📦 Project Structure
 
@@ -92,10 +102,12 @@ Tulip-File-Explorer/
 │   ├── assets/      # Static assets
 │   ├── App.jsx      # Main layout
 │   └── main.jsx     # Entry point
-├── dist/            # Build artifacts
+├── tests/           # Vitest unit tests
+├── dist/            # Compiled renderer (vite build)
+├── release/         # Packaged apps (electron-builder)
 └── public/          # Public static assets
 ```
 
 ## 📝 License
 
-This project is licensed under the **MIT License**.
+This project is licensed under the **MIT License** — see [LICENSE](LICENSE).

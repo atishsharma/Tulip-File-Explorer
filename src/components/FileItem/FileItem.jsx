@@ -3,60 +3,67 @@ import { getFileIcon } from '../../utils/fileIcons';
 import { formatFileSize, formatDate, getFileType } from '../../utils/formatters';
 import './FileItem.css';
 
-const thumbnailCache = new Map();
 const THUMB_GENERATION_SIZE = 256; // Generate high-quality thumbs once and scale down
+const THUMB_CACHE_LIMIT = 500;
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif', '.ico'];
+const VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.mov', '.webm', '.wmv', '.flv', '.m4v'];
+
+// LRU cache of data URLs keyed by path + mtime + size, so edited files get fresh thumbnails.
+// A null value records a failed attempt so it is not retried on every render.
+const thumbnailCache = new Map();
+
+function cacheKey(item) {
+    return `${item.path}|${item.modified}|${item.size}`;
+}
+
+function cacheGet(key) {
+    if (!thumbnailCache.has(key)) return undefined;
+    const value = thumbnailCache.get(key);
+    thumbnailCache.delete(key);
+    thumbnailCache.set(key, value);
+    return value;
+}
+
+function cacheSet(key, value) {
+    thumbnailCache.set(key, value);
+    while (thumbnailCache.size > THUMB_CACHE_LIMIT) {
+        thumbnailCache.delete(thumbnailCache.keys().next().value);
+    }
+}
+
+function supportsThumbnail(item) {
+    const ext = item.extension?.toLowerCase();
+    return !item.isDirectory && !item.error && (IMAGE_EXTS.includes(ext) || VIDEO_EXTS.includes(ext));
+}
 
 function FileItem({ item, viewMode, onOpen, selected, onSelect, onContextMenu, thumbnailSize = 80, clipboardStatus, focused }) {
-    // Initialize from cache if available
-    const [thumbnail, setThumbnail] = useState(() => thumbnailCache.get(item.path) || null);
-    const [loading, setLoading] = useState(!thumbnailCache.has(item.path));
+    const key = cacheKey(item);
+    const wantsThumb = supportsThumbnail(item);
+    // Results are stored per key, so a stale result for an old key is simply ignored
+    const [loaded, setLoaded] = useState({ key: null, data: null });
+    const cached = cacheGet(key);
+    const thumbnail = cached !== undefined ? cached : (loaded.key === key ? loaded.data : null);
+    const loading = wantsThumb && cached === undefined && loaded.key !== key;
 
     // Check if item is in clipboard with 'cut' action
     const isCut = clipboardStatus?.action === 'cut' && clipboardStatus?.items?.includes(item.path);
 
     useEffect(() => {
-        // If we already have a thumbnail map for this path, don't re-fetch
-        if (thumbnailCache.has(item.path)) {
-            setThumbnail(thumbnailCache.get(item.path));
-            setLoading(false);
-            return;
-        }
-
+        if (!wantsThumb || !window.electronAPI || thumbnailCache.has(key)) return undefined;
         let cancelled = false;
 
-        async function loadThumbnail() {
-            if (!window.electronAPI) return;
-
-            const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.ico'];
-            // Also supports video thumbs if implemented in backend
-            const videoExts = ['.mp4', '.mkv', '.avi', '.mov', '.webm'];
-            const supportsThumb = imageExts.includes(item.extension?.toLowerCase()) || videoExts.includes(item.extension?.toLowerCase());
-
-            if (item.isFile && supportsThumb) {
-                setLoading(true);
-                try {
-                    // Request fixed size to allow efficient caching and CSS scaling
-                    const result = await window.electronAPI.getThumbnail(item.path, THUMB_GENERATION_SIZE);
-                    if (!cancelled && result.success && result.data) {
-                        thumbnailCache.set(item.path, result.data);
-                        setThumbnail(result.data);
-                    }
-                } catch (err) {
-                    // Ignore errors
-                } finally {
-                    if (!cancelled) setLoading(false);
-                }
-            } else {
-                setLoading(false);
-            }
-        }
-
-        loadThumbnail();
+        window.electronAPI.getThumbnail(item.path, THUMB_GENERATION_SIZE)
+            .then((result) => (result?.success && result.data ? result.data : null))
+            .catch(() => null)
+            .then((data) => {
+                cacheSet(key, data);
+                if (!cancelled) setLoaded({ key, data });
+            });
 
         return () => {
             cancelled = true;
         };
-    }, [item.path, item.extension, item.isFile]); // Removed thumbnailSize dependency to avoid re-fetching on resize
+    }, [key, wantsThumb, item.path]);
 
     const handleDoubleClick = () => {
         onOpen(item);
@@ -66,9 +73,8 @@ function FileItem({ item, viewMode, onOpen, selected, onSelect, onContextMenu, t
         onSelect?.(item, e);
     };
 
+    // Selection for right-click is decided by the explorer (keeps multi-selection intact)
     const handleContextMenu = (e) => {
-        e.preventDefault();
-        onSelect?.(item, e);
         onContextMenu?.(e, item);
     };
 
@@ -85,6 +91,7 @@ function FileItem({ item, viewMode, onOpen, selected, onSelect, onContextMenu, t
         return (
             <tr
                 data-path={item.path}
+                aria-selected={selected}
                 className={`file-item-row ${selected ? 'selected' : ''} ${focused ? 'focused' : ''} ${item.isHidden ? 'hidden-file' : ''} ${isCut ? 'cut-item' : ''}`}
                 onDoubleClick={handleDoubleClick}
                 onClick={handleClick}
@@ -113,6 +120,9 @@ function FileItem({ item, viewMode, onOpen, selected, onSelect, onContextMenu, t
     return (
         <button
             data-path={item.path}
+            role="option"
+            aria-selected={selected}
+            title={item.name}
             className={`file-item-grid ${item.isDirectory ? 'is-folder' : ''} ${selected ? 'selected' : ''} ${focused ? 'focused' : ''} ${item.isHidden ? 'hidden-file' : ''} ${isCut ? 'cut-item' : ''}`}
             onDoubleClick={handleDoubleClick}
             onClick={handleClick}

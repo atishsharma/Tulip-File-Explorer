@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getFileIcon } from '../../utils/fileIcons';
 import { formatFileSize, formatDate, getFileType } from '../../utils/formatters';
+import { fileUrl } from '../../utils/paths';
+import { useModal } from '../../hooks/useModal';
 import './PropertiesModal.css';
+
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico', '.svg', '.tiff', '.tif'];
+const VIDEO_EXTS = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v'];
 
 function formatDuration(seconds) {
     if (!seconds) return 'Unknown';
@@ -19,99 +24,122 @@ function formatBitrate(bps) {
     return `${bps} bps`;
 }
 
-function PropertiesModal({ isOpen, onClose, item, onRename }) {
+function typeLabel(item) {
+    if (item.isCloud) return 'Cloud Drive';
+    if (item.isDrive) return 'Drive';
+    return getFileType(item);
+}
+
+/**
+ * Rendered only while open (App mounts it with a key per item), so all state starts fresh.
+ */
+function PropertiesModal({ isOpen, onClose, item: initialItem, onRename, onChanged, notify }) {
+    // Local copy so the dialog follows the item after a rename or hide (its path changes)
+    const [item, setItem] = useState(initialItem);
     const [isRenaming, setIsRenaming] = useState(false);
-    const [newName, setNewName] = useState('');
+    const [newName, setNewName] = useState(initialItem?.name || '');
     const [metadata, setMetadata] = useState(null);
     const [contentInfo, setContentInfo] = useState(null);
     const [folderStats, setFolderStats] = useState(null);
-    const [loadingMeta, setLoadingMeta] = useState(false);
-    const [calculatingStats, setCalculatingStats] = useState(false);
+    const renameInFlight = useRef(false);
+    const dialogRef = useModal(isOpen, onClose);
+
+    const itemPath = item?.path;
+    const isFolder = !!item?.isDirectory && !item?.isDrive;
+    const isFile = !!item && !item.isDirectory;
+    const extension = (item?.extension || '').toLowerCase();
 
     useEffect(() => {
-        if (!isOpen || !item) return;
+        if (!isOpen || !itemPath || !window.electronAPI) return undefined;
+        let cancelled = false;
 
-        setNewName(item.name);
-        setMetadata(null);
-        setContentInfo(null);
-        setFolderStats(null);
-        setLoadingMeta(true);
-
-        async function loadData() {
-            if (!window.electronAPI) return;
-
+        (async () => {
             try {
-                // 1. Get Unified Content Info (includes exact Hidden status checked properly on backend)
-                const info = await window.electronAPI.getContentInfo(item.path);
+                const info = await window.electronAPI.getContentInfo(itemPath);
+                if (cancelled) return;
                 setContentInfo(info);
 
-                // 2. Load Item Specifics
-                if (item.isDirectory && !item.isDrive) {
-                    setCalculatingStats(true); // Don't block UI
-                    window.electronAPI.calculateFolderStats(item.path).then(stats => {
-                        setFolderStats(stats);
-                        setCalculatingStats(false);
-                    });
-                } else if (item.isFile) {
-                    // Load Media Metadata
-                    const ext = (item.extension || '').toLowerCase();
-                    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico', '.svg'];
-                    const videoExts = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm'];
-
-                    if (imageExts.includes(ext)) {
-                        const result = await window.electronAPI.getImageMetadata(item.path);
-                        if (result.success) setMetadata({ type: 'image', ...result.metadata });
-                    } else if (videoExts.includes(ext)) {
-                        const result = await window.electronAPI.getVideoMetadata(item.path);
-                        if (result.success) setMetadata({ type: 'video', ...result.metadata });
-                    }
+                if (isFile && IMAGE_EXTS.includes(extension)) {
+                    const result = await window.electronAPI.getImageMetadata(itemPath);
+                    if (!cancelled && result.success) setMetadata({ type: 'image', ...result.metadata });
+                } else if (isFile && VIDEO_EXTS.includes(extension)) {
+                    const result = await window.electronAPI.getVideoMetadata(itemPath);
+                    if (!cancelled && result.success) setMetadata({ type: 'video', ...result.metadata });
                 }
             } catch (err) {
                 console.error('Error loading properties:', err);
-            } finally {
-                setLoadingMeta(false);
             }
+        })();
+
+        // Folder size can take a long time; it is cancelled when the dialog closes
+        if (isFolder) {
+            window.electronAPI.calculateFolderStats(itemPath).then((stats) => {
+                if (!cancelled && stats && !stats.cancelled) setFolderStats(stats);
+            });
         }
 
-        loadData();
-    }, [isOpen, item]);
+        return () => {
+            cancelled = true;
+            if (isFolder) window.electronAPI.cancelFolderStats(itemPath);
+        };
+    }, [isOpen, itemPath, isFile, isFolder, extension]);
 
     if (!isOpen || !item) return null;
 
+    const canRename = !item.isDrive && !item.isSpecialFolder;
+
     const handleRename = async () => {
-        if (newName.trim() && newName !== item.name) {
-            await onRename?.(item, newName.trim());
+        if (renameInFlight.current) return;
+        const trimmed = newName.trim();
+        if (!trimmed || trimmed === item.name) {
             setIsRenaming(false);
+            setNewName(item.name);
+            return;
+        }
+        renameInFlight.current = true;
+        try {
+            const result = await onRename?.(item, trimmed);
+            if (result?.success) {
+                setItem((prev) => ({ ...prev, name: trimmed, path: result.newPath }));
+                setIsRenaming(false);
+            }
+        } finally {
+            renameInFlight.current = false;
         }
     };
 
     const handleHideChange = async (e) => {
         const hide = e.target.checked;
-        if (window.electronAPI) {
-            const success = await window.electronAPI.setHiddenAttribute(item.path, hide);
-            if (success) {
-                // Update local state to reflect change immediately
-                setContentInfo(prev => ({ ...prev, isHidden: hide }));
-                // Might need to refresh explorer view to see changes...
-                // Ideally we'd trigger a refresh callback here if provided
-            }
+        if (!window.electronAPI) return;
+        const result = await window.electronAPI.setHiddenAttribute(item.path, hide);
+        if (result?.success) {
+            const newPath = result.newPath || item.path;
+            const name = newPath.split(/[\\/]/).pop();
+            setItem((prev) => ({ ...prev, path: newPath, name, isHidden: hide }));
+            setNewName(name);
+            setContentInfo((prev) => ({ ...prev, isHidden: hide, path: newPath, name }));
+            onChanged?.();
+        } else {
+            notify?.(`Couldn't change hidden attribute: ${result?.error || 'unknown error'}`, 'error');
         }
     };
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
+            e.preventDefault();
             handleRename();
         } else if (e.key === 'Escape') {
+            e.stopPropagation();
             setIsRenaming(false);
             setNewName(item.name);
         }
     };
 
-    // Drive Capacity Bar
     const renderDriveUsage = () => {
-        if (!item.isDrive) return null;
-        const used = item.used || 0;
-        const total = item.size || 1;
+        const total = item.total || item.size || contentInfo?.total || 0;
+        const free = item.free ?? contentInfo?.free;
+        if (!total) return <div className="usage-total">Capacity unknown</div>;
+        const used = item.used ?? (free != null ? total - free : 0);
         const percent = Math.min(100, Math.max(0, (used / total) * 100));
         const variant = percent > 90 ? 'danger' : 'primary';
 
@@ -119,27 +147,33 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
             <div className="properties-drive-usage">
                 <div className="usage-labels">
                     <span>Used: {formatFileSize(used)}</span>
-                    <span>Free: {formatFileSize(item.free || 0)}</span>
+                    <span>Free: {free != null ? formatFileSize(free) : 'Unknown'}</span>
                 </div>
-                <div className="usage-track">
-                    <div
-                        className={`usage-fill ${variant}`}
-                        style={{ width: `${percent}%` }}
-                    />
+                <div className="usage-track" role="progressbar" aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100}>
+                    <div className={`usage-fill ${variant}`} style={{ width: `${percent}%` }} />
                 </div>
                 <div className="usage-total">Capacity: {formatFileSize(total)}</div>
             </div>
         );
     };
 
+    const isHidden = contentInfo ? contentInfo.isHidden : (item.isHidden || item.name.startsWith('.'));
+
     return (
         <div className="properties-overlay" onClick={onClose}>
-            <div className="properties-modal card scale-in" onClick={(e) => e.stopPropagation()}>
+            <div
+                ref={dialogRef}
+                className="properties-modal card scale-in"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="properties-title"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <header className="properties-header">
                     <div className="properties-icon">
-                        {metadata?.type === 'image' && item ? (
+                        {metadata?.type === 'image' ? (
                             <img
-                                src={`file://${item.path}`}
+                                src={fileUrl(item.path)}
                                 alt=""
                                 className="properties-thumbnail"
                                 style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px' }}
@@ -149,7 +183,7 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                         )}
                     </div>
                     <div className="properties-title-section">
-                        {isRenaming && !item.isDrive && !item.isSpecialFolder ? (
+                        {isRenaming && canRename ? (
                             <input
                                 type="text"
                                 value={newName}
@@ -158,15 +192,16 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                                 onBlur={handleRename}
                                 autoFocus
                                 className="properties-name-input"
+                                aria-label="New name"
                             />
                         ) : (
-                            <h2 className="properties-title truncate" title={item.name}>
+                            <h2 id="properties-title" className="properties-title truncate" title={item.name}>
                                 {item.name}
                             </h2>
                         )}
-                        <span className="properties-type">{item.isDrive ? 'Local Disk' : getFileType(item)}</span>
+                        <span className="properties-type">{typeLabel(item)}</span>
                     </div>
-                    <button className="properties-close" onClick={onClose}>
+                    <button className="properties-close" onClick={onClose} aria-label="Close">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
@@ -174,13 +209,12 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                 </header>
 
                 <div className="properties-content">
-                    {/* General Info */}
                     <section className="properties-section">
                         <h3 className="properties-section-title">General</h3>
                         <div className="properties-grid">
                             <div className="properties-row">
                                 <span className="properties-label">Type</span>
-                                <span className="properties-value">{item.isDrive ? 'Local Disk' : getFileType(item)}</span>
+                                <span className="properties-value">{typeLabel(item)}</span>
                             </div>
 
                             <div className="properties-row">
@@ -190,26 +224,25 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                                 </span>
                             </div>
 
-                            {!item.isDirectory && !item.isDrive && (
+                            {isFile && (
                                 <div className="properties-row">
                                     <span className="properties-label">Size</span>
-                                    <span className="properties-value">{formatFileSize(item.size)}</span>
+                                    <span className="properties-value">{formatFileSize(contentInfo?.size ?? item.size)}</span>
                                 </div>
                             )}
 
-                            {/* Folder Stats */}
-                            {item.isDirectory && !item.isDrive && (
+                            {isFolder && (
                                 <>
                                     <div className="properties-row">
                                         <span className="properties-label">Size</span>
                                         <span className="properties-value">
-                                            {folderStats ? formatFileSize(folderStats.size) : (calculatingStats ? 'Calculating...' : formatFileSize(item.size || 0))}
+                                            {folderStats ? formatFileSize(folderStats.size) : 'Calculating...'}
                                         </span>
                                     </div>
                                     <div className="properties-row">
                                         <span className="properties-label">Contains</span>
                                         <span className="properties-value">
-                                            {folderStats ? `${folderStats.files} Files, ${folderStats.folders} Folders` : (calculatingStats ? '...' : '-')}
+                                            {folderStats ? `${folderStats.files} Files, ${folderStats.folders} Folders` : '...'}
                                         </span>
                                     </div>
                                 </>
@@ -217,7 +250,6 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                         </div>
                     </section>
 
-                    {/* Drive Usage */}
                     {item.isDrive && (
                         <section className="properties-section">
                             <h3 className="properties-section-title">Drive Usage</h3>
@@ -225,34 +257,44 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                         </section>
                     )}
 
-                    {/* Media Metadata */}
                     {metadata && (
                         <section className="properties-section">
                             <h3 className="properties-section-title">Media Details</h3>
                             <div className="properties-grid">
-                                {metadata.width && (
+                                {!!metadata.width && (
                                     <div className="properties-row">
                                         <span className="properties-label">Dimensions</span>
                                         <span className="properties-value">{metadata.width} x {metadata.height}</span>
                                     </div>
                                 )}
-                                {metadata.duration && (
+                                {!!metadata.duration && (
                                     <div className="properties-row">
                                         <span className="properties-label">Duration</span>
                                         <span className="properties-value">{formatDuration(metadata.duration)}</span>
                                     </div>
                                 )}
-                                {metadata.bitrate && (
+                                {!!metadata.bitrate && (
                                     <div className="properties-row">
                                         <span className="properties-label">Bitrate</span>
                                         <span className="properties-value">{formatBitrate(metadata.bitrate)}</span>
+                                    </div>
+                                )}
+                                {!!metadata.fps && (
+                                    <div className="properties-row">
+                                        <span className="properties-label">Frame rate</span>
+                                        <span className="properties-value">{metadata.fps} fps</span>
+                                    </div>
+                                )}
+                                {metadata.ffprobeMissing && (
+                                    <div className="properties-row">
+                                        <span className="properties-label">Details</span>
+                                        <span className="properties-value">Install ffprobe (FFmpeg) for video details</span>
                                     </div>
                                 )}
                             </div>
                         </section>
                     )}
 
-                    {/* Dates & Attributes */}
                     <section className="properties-section">
                         <h3 className="properties-section-title">Attributes</h3>
                         <div className="properties-grid">
@@ -271,14 +313,14 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                                 <label className="attribute-item">
                                     <input
                                         type="checkbox"
-                                        checked={contentInfo ? contentInfo.isHidden : (item.isHidden || item.name.startsWith('.'))}
+                                        checked={!!isHidden}
                                         onChange={handleHideChange}
-                                        disabled={!window.electronAPI}
+                                        disabled={!window.electronAPI || item.isSpecialFolder}
                                     />
                                     <span>Hidden</span>
                                 </label>
                                 <label className="attribute-item">
-                                    <input type="checkbox" checked={contentInfo?.readOnly} disabled />
+                                    <input type="checkbox" checked={!!contentInfo?.readOnly} readOnly disabled />
                                     <span>Read-only</span>
                                 </label>
                             </div>
@@ -287,7 +329,7 @@ function PropertiesModal({ isOpen, onClose, item, onRename }) {
                 </div>
 
                 <footer className="properties-footer">
-                    {!item.isDrive && !item.isSpecialFolder && (
+                    {canRename && (
                         <button
                             className="properties-btn outlined"
                             onClick={() => {

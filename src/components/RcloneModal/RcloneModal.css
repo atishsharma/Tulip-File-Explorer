@@ -221,3 +221,17 @@
 .rclone-error {
     color: #dc2626;
 }
+.rclone-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--primary);
+    text-decoration: underline;
+    cursor: pointer;
+    font: inherit;
+}
+
+.rclone-config-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

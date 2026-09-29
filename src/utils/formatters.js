@@ -2,76 +2,46 @@
  * Format file size to human readable string
  */
 export function formatFileSize(bytes) {
-    if (bytes === null || bytes === undefined) return '-';
-    if (bytes === 0) return '0 B';
+    if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes))) return '-';
+    const value = Number(bytes);
+    if (value === 0) return '0 B';
 
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
     const base = 1024;
-    const unitIndex = Math.floor(Math.log(bytes) / Math.log(base));
-    const size = bytes / Math.pow(base, unitIndex);
+    const abs = Math.abs(value);
+    const unitIndex = Math.min(units.length - 1, Math.max(0, Math.floor(Math.log(abs) / Math.log(base))));
+    const size = value / Math.pow(base, unitIndex);
 
     return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
 }
 
 /**
- * Format date to locale string
+ * Whole calendar days between date and now (0 = today, 1 = yesterday, negative = future).
  */
-export function formatDate(dateString) {
-    if (!dateString) return '-';
-
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = now - date;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    // Today
-    if (diffDays === 0) {
-        return `Today ${date.toLocaleTimeString(undefined, {
-            hour: '2-digit',
-            minute: '2-digit',
-        })}`;
-    }
-
-    // Yesterday
-    if (diffDays === 1) {
-        return `Yesterday ${date.toLocaleTimeString(undefined, {
-            hour: '2-digit',
-            minute: '2-digit',
-        })}`;
-    }
-
-    // Within a week
-    if (diffDays < 7) {
-        return date.toLocaleDateString(undefined, {
-            weekday: 'long',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    }
-
-    // Default: full date
-    return date.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-    });
+export function calendarDaysAgo(date, now = new Date()) {
+    const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return Math.round((startOf(now) - startOf(date)) / (1000 * 60 * 60 * 24));
 }
 
 /**
- * Format path for display (truncate if too long)
+ * Format date to locale string
  */
-export function formatPath(path, maxLength = 50) {
-    if (!path || path.length <= maxLength) return path;
+export function formatDate(dateString, now = new Date()) {
+    if (!dateString) return '-';
 
-    const separator = path.includes('\\') ? '\\' : '/';
-    const parts = path.split(separator);
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '-';
+    const days = calendarDaysAgo(date, now);
+    const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-    if (parts.length <= 3) return path;
+    if (days === 0) return `Today ${time}`;
+    if (days === 1) return `Yesterday ${time}`;
+    if (days > 1 && days < 7) {
+        return date.toLocaleDateString(undefined, { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+    }
 
-    const first = parts[0] || separator;
-    const last = parts.slice(-2).join(separator);
-
-    return `${first}${separator}...${separator}${last}`;
+    // Older or future dates: full date
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 /**
@@ -130,11 +100,7 @@ export function getFileType(item) {
  * Format drive capacity
  */
 export function formatDriveCapacity(drive) {
-    if (!drive.total || !drive.free) return '';
-
-    const used = drive.total - drive.free;
-    const usedPercent = Math.round((used / drive.total) * 100);
-
+    if (!drive.total || drive.free == null) return '';
     return `${formatFileSize(drive.free)} free of ${formatFileSize(drive.total)}`;
 }
 
@@ -142,6 +108,6 @@ export function formatDriveCapacity(drive) {
  * Get drive usage percentage
  */
 export function getDriveUsagePercent(drive) {
-    if (!drive.total || !drive.free) return 0;
-    return Math.round(((drive.total - drive.free) / drive.total) * 100);
+    if (!drive.total || drive.free == null) return 0;
+    return Math.min(100, Math.max(0, Math.round(((drive.total - drive.free) / drive.total) * 100)));
 }

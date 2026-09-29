@@ -1,257 +1,253 @@
-const { exec } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const fs = require('fs').promises;
-const fsSync = require('fs');
 const path = require('path');
 const os = require('os');
+const { withTimeout, isValidRemoteName } = require('./utils.cjs');
+const { getDriveStats } = require('./fileSystem.cjs');
+
+const MOUNT_READY_TIMEOUT = 15000;
+const UNMOUNT_TIMEOUT = 5000;
+
+function run(cmd, args, timeout = 10000) {
+    return new Promise((resolve, reject) => {
+        execFile(cmd, args, { timeout, windowsHide: true }, (error, stdout, stderr) => {
+            if (error) {
+                error.stderr = stderr;
+                reject(error);
+            } else {
+                resolve(stdout);
+            }
+        });
+    });
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 class RcloneManager {
-    constructor(appPath) {
-        this.mounts = new Map(); // remoteName -> { process, mountPath }
+    constructor(userDataPath) {
+        this.mounts = new Map(); // remoteName -> { process, mountPath, type }
         this.baseMountDir = path.join(os.homedir(), 'TulipMounts');
+        this.stateFile = path.join(userDataPath, 'rclone-mounts.json');
         this.isRcloneAvailable = false;
-
-        // Ensure base mount directory exists
-        if (!fsSync.existsSync(this.baseMountDir)) {
-            fsSync.mkdirSync(this.baseMountDir, { recursive: true });
-        }
     }
 
     async checkInstalled() {
-        return new Promise((resolve) => {
-            exec('rclone --version', (error, stdout) => {
-                if (error) {
-                    this.isRcloneAvailable = false;
-                    resolve(false);
-                } else {
-                    this.isRcloneAvailable = true;
-                    resolve(true);
-                }
-            });
-        });
+        try {
+            await run('rclone', ['--version']);
+            this.isRcloneAvailable = true;
+        } catch {
+            this.isRcloneAvailable = false;
+        }
+        return this.isRcloneAvailable;
     }
 
     async listRemotes() {
-        if (!this.isRcloneAvailable) return [];
+        if (!this.isRcloneAvailable && !(await this.checkInstalled())) {
+            const error = new Error('rclone is not installed or not on PATH. Install it from https://rclone.org/install/');
+            error.code = 'RCLONE_NOT_INSTALLED';
+            throw error;
+        }
 
-        return new Promise((resolve, reject) => {
-            exec('rclone listremotes --long', (error, stdout) => {
-                if (error) {
-                    reject(error);
-                    return;
-                }
-                // Output is like "Drive: drive\nDropbox: dropbox\n"
-                const remotes = stdout.split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line)
-                    .map(line => {
-                        const parts = line.split(':').map(p => p.trim());
-                        return {
-                            name: parts[0],
-                            type: parts[1] || 'unknown'
-                        };
-                    });
-                resolve(remotes);
-            });
-        });
+        const stdout = await run('rclone', ['listremotes', '--long']);
+        // Output is like "Drive:   drive\nDropbox: dropbox\n"
+        return stdout.split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+                const idx = line.indexOf(':');
+                return {
+                    name: line.slice(0, idx).trim(),
+                    type: line.slice(idx + 1).trim() || 'unknown',
+                };
+            })
+            .filter((r) => isValidRemoteName(r.name));
+    }
+
+    async isMountActive(mountPath) {
+        const platform = os.platform();
+        try {
+            if (platform === 'win32') {
+                await withTimeout(fs.access(`${mountPath}\\`), 2000);
+                return true;
+            }
+            if (platform === 'linux') {
+                const mounts = await fs.readFile('/proc/self/mounts', 'utf8');
+                // Mount points in /proc are octal-escaped for spaces etc.
+                const escaped = mountPath.replace(/[ \t\n\\]/g, (c) => '\\' + c.charCodeAt(0).toString(8).padStart(3, '0'));
+                return mounts.split('\n').some((line) => line.split(' ')[1] === escaped);
+            }
+            const stdout = await run('mount', [], 3000);
+            return stdout.includes(` on ${mountPath} (`);
+        } catch {
+            return false;
+        }
+    }
+
+    async getUsedDriveLetters() {
+        const used = new Set();
+        await Promise.all(Array.from({ length: 26 }, async (_, i) => {
+            const letter = String.fromCharCode(65 + i);
+            try {
+                await withTimeout(fs.access(`${letter}:\\`), 1000);
+                used.add(letter);
+            } catch { /* free */ }
+        }));
+        return used;
+    }
+
+    async forceUnmount(mountPath) {
+        const platform = os.platform();
+        if (platform === 'win32') return;
+        const attempts = platform === 'darwin'
+            ? [['umount', [mountPath]], ['diskutil', ['unmount', 'force', mountPath]]]
+            : [['fusermount3', ['-u', mountPath]], ['fusermount', ['-u', mountPath]], ['umount', ['-l', mountPath]]];
+        for (const [cmd, args] of attempts) {
+            try {
+                await run(cmd, args, UNMOUNT_TIMEOUT);
+                return;
+            } catch { /* try next */ }
+        }
     }
 
     async mountRemote(remoteName, remoteType = 'unknown') {
+        if (!isValidRemoteName(remoteName)) {
+            throw new Error('Invalid remote name');
+        }
         if (this.mounts.has(remoteName)) {
             return { success: true, path: this.mounts.get(remoteName).mountPath, alreadyMounted: true };
         }
 
         const platform = os.platform();
         let mountPath;
-        let command;
+        const args = ['mount', `${remoteName}:`];
 
         if (platform === 'win32') {
-            // Windows: Find first available drive letter backwards from Z
             const usedDrives = await this.getUsedDriveLetters();
-            const available = 'ZYXWVUTSRQPONMLKJIHGFEDCBA'.split('').find(l => !usedDrives.has(l));
-
-            if (!available) {
-                throw new Error('No free drive letters available for mounting.');
-            }
-
+            const available = 'ZYXWVUTSRQPONMLKJIHGFEDCB'.split('').find((l) => !usedDrives.has(l));
+            if (!available) throw new Error('No free drive letters available for mounting.');
             mountPath = `${available}:`;
-            // Use --no-console to hide terminal window, mount to drive letter
-            // Add --volname to set the drive label in Windows Explorer
-            command = `rclone mount "${remoteName}:" ${mountPath} --vfs-cache-mode full --no-console --volname "${remoteName}"`;
+            args.push(mountPath, '--vfs-cache-mode', 'full', '--volname', remoteName);
         } else {
-            // Linux/Mac: Mount to directory
             mountPath = path.join(this.baseMountDir, remoteName);
 
-            try {
-                await fs.mkdir(mountPath, { recursive: true });
-            } catch (err) { }
-
-            // Check if directory is empty/mounted
-            try {
-                const files = await fs.readdir(mountPath);
-                if (files.length > 0) {
-                    try { await this.unmountRemote(remoteName); } catch (e) { }
-                }
-            } catch (e) { }
-
-            command = `rclone mount "${remoteName}:" "${mountPath}" --vfs-cache-mode writes`;
+            // Clear a stale mount left behind by a crash, then make sure the folder exists and is empty
+            if (await this.isMountActive(mountPath)) {
+                await this.forceUnmount(mountPath);
+            }
+            await fs.mkdir(mountPath, { recursive: true });
+            const leftovers = await fs.readdir(mountPath).catch(() => []);
+            if (leftovers.length > 0) {
+                throw new Error(`Mount folder ${mountPath} is not empty. Move its contents elsewhere and try again.`);
+            }
+            args.push(mountPath, '--vfs-cache-mode', 'writes');
         }
 
-        return new Promise((resolve, reject) => {
-            console.log(`Executing Rclone: ${command}`);
-            // Use spawn for better process control on Windows
-            const { spawn } = require('child_process');
-
-            // Parse command string to args for spawn (basic splitting, ideally use a parser)
-            // But simple split works for these specific known commands
-            // Or just use exec if we don't need detailed stream control yet.
-            // Actually, exec is easier for simple start, but spawn is better for long running.
-            // Let's stick to exec for simplicity as per existing code structure, 
-            // but ensure we don't await completion (it blocks).
-
-            const childProcess = exec(command, (error) => {
-                // This callback runs when process terminates
-                if (this.mounts.has(remoteName)) {
-                    console.error(`Rclone mount ${remoteName} terminated unexpectedly:`, error);
-                    this.mounts.delete(remoteName);
-                }
-            });
-
-            // Wait verification
-            setTimeout(async () => {
-                const isRunning = childProcess.exitCode === null;
-                if (isRunning) {
-                    // Verify mount path exists/accessible using fs
-                    try {
-                        if (platform === 'win32') {
-                            // Accessing Z:\ might be slow/block if mount failing?
-                            // Just assume success if process running for now, as check might freeze
-                        }
-                    } catch (e) { }
-
-                    this.mounts.set(remoteName, { process: childProcess, mountPath, type: remoteType });
-                    resolve({ success: true, path: mountPath });
-                } else {
-                    reject(new Error(`Rclone exited immediately. Check if WinFSP is installed.`));
-                }
-            }, 3000);
+        // Spawn rclone directly (no shell) so kill() reaches the rclone process itself
+        const child = spawn('rclone', args, { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+        let stderr = '';
+        child.stderr.on('data', (chunk) => {
+            stderr = (stderr + chunk.toString()).slice(-4000);
         });
-    }
 
-    // Helper to find used drive letters on Windows using FS check (No WMIC)
-    async getUsedDriveLetters() {
-        const used = new Set();
-        // Check A-Z
-        for (let i = 65; i <= 90; i++) {
-            const letter = String.fromCharCode(i);
-            const drivePath = `${letter}:\\`;
-            try {
-                await fs.access(drivePath);
-                used.add(letter);
-            } catch (e) {
-                // Drive not accessible/free
+        let exited = false;
+        let spawnError = null;
+        child.on('error', (err) => { spawnError = err; exited = true; });
+        child.on('exit', () => {
+            exited = true;
+            const info = this.mounts.get(remoteName);
+            if (info && info.process === child) {
+                console.error(`Rclone mount ${remoteName} terminated:`, stderr.trim());
+                this.mounts.delete(remoteName);
+                this.saveState();
             }
+        });
+
+        // Wait until the OS reports the mount, or rclone exits
+        const deadline = Date.now() + MOUNT_READY_TIMEOUT;
+        while (Date.now() < deadline) {
+            if (exited) break;
+            if (await this.isMountActive(mountPath)) {
+                this.mounts.set(remoteName, { process: child, mountPath, type: remoteType });
+                await this.saveState();
+                return { success: true, path: mountPath };
+            }
+            await sleep(500);
         }
-        return used;
+
+        if (!exited) child.kill();
+        if (platform !== 'win32') await fs.rmdir(mountPath).catch(() => {});
+
+        const hint = platform === 'win32' ? ' Check that WinFsp is installed.' : ' Check that FUSE is installed.';
+        const detail = spawnError ? spawnError.message : (stderr.trim().split('\n').pop() || 'Mount did not become ready in time.');
+        throw new Error(`Failed to mount ${remoteName}: ${detail}${hint}`);
     }
 
-    async unmountRemote(remoteName) {
+    async unmountRemote(remoteName, { persist = true } = {}) {
         const mountInfo = this.mounts.get(remoteName);
-        const platform = os.platform();
+        if (!mountInfo) return { success: true };
 
-        if (mountInfo && mountInfo.process) {
-            mountInfo.process.kill(); // Kill the rclone process
-        }
-
-        // Force unmount via system command to be safe
-        const mountPath = path.join(this.baseMountDir, remoteName);
-        let unmountCmd;
-        if (platform === 'darwin') {
-            unmountCmd = `umount "${mountPath}"`;
-        } else if (platform === 'win32') {
-            // Windows rclone usually handles unmount on kill, but can try
-            // No standard umount command for directory mounts cleanly without external tools
-            unmountCmd = null;
-        } else {
-            // Linux
-            unmountCmd = `fusermount -u "${mountPath}"`;
-        }
-
-        if (unmountCmd) {
-            try {
-                await new Promise(resolve => exec(unmountCmd, resolve));
-            } catch (e) {
-                console.error('Unmount command failed:', e);
-            }
-        }
-
+        // Remove first so the exit handler does not treat this as a crash
         this.mounts.delete(remoteName);
+        const { process: child, mountPath } = mountInfo;
 
-        // Clean up empty directory
-        try {
-            await fs.rmdir(mountPath);
-        } catch (e) { }
-
+        if (os.platform() !== 'win32') {
+            await this.forceUnmount(mountPath);
+        }
+        if (child && child.exitCode === null) {
+            child.kill();
+        }
+        if (os.platform() !== 'win32') {
+            await fs.rmdir(mountPath).catch(() => {});
+        }
+        if (persist) await this.saveState();
         return { success: true };
     }
 
-    async getDriveStats(drivePath) {
+    async getMounted() {
+        return Promise.all([...this.mounts.entries()].map(async ([name, info]) => ({
+            name,
+            path: info.mountPath,
+            type: info.type || 'unknown',
+            isCloud: true,
+            ...(await getDriveStats(os.platform() === 'win32' ? `${info.mountPath}\\` : info.mountPath)),
+        })));
+    }
+
+    async unmountAll() {
+        // Keep the saved list so mounts are restored on next launch
+        await Promise.allSettled([...this.mounts.keys()].map((name) => this.unmountRemote(name, { persist: false })));
+    }
+
+    async saveState() {
+        const list = [...this.mounts.entries()].map(([name, info]) => ({ name, type: info.type }));
         try {
-            const platform = os.platform();
-            if (platform === 'win32') {
-                return { total: null, free: null };
-            } else {
-                // Unix-like systems: use df command
-                return new Promise((resolve) => {
-                    exec(`df -k "${drivePath}"`, (error, stdout) => {
-                        if (error) {
-                            resolve({ total: null, free: null });
-                            return;
-                        }
-                        try {
-                            // Output format: Filesystem 1K-blocks Used Available Use% Mounted on
-                            // Tail -1 logic might be flaky if multiple lines match, better to parse stdout
-                            const lines = stdout.trim().split('\n');
-                            if (lines.length > 1) {
-                                const parts = lines[lines.length - 1].trim().split(/\s+/);
-                                if (parts.length >= 4) {
-                                    const total = parseInt(parts[1]) * 1024;
-                                    const used = parseInt(parts[2]) * 1024;
-                                    const free = parseInt(parts[3]) * 1024;
-                                    resolve({ total, free, used });
-                                    return;
-                                }
-                            }
-                            resolve({ total: null, free: null });
-                        } catch {
-                            resolve({ total: null, free: null });
-                        }
-                    });
-                });
-            }
-        } catch {
-            return { total: null, free: null };
+            await fs.writeFile(this.stateFile, JSON.stringify(list));
+        } catch (error) {
+            console.error('Failed to save rclone mount state:', error.message);
         }
     }
 
-    async getMounted() {
-        const mounts = [];
-        for (const [name, info] of this.mounts.entries()) {
-            const stats = await this.getDriveStats(info.mountPath);
-            mounts.push({
-                name,
-                path: info.mountPath,
-                type: info.type || 'unknown',
-                ...stats
-            });
+    /**
+     * Re-mount remotes that were mounted when the app last quit.
+     */
+    async restoreMounts() {
+        let list;
+        try {
+            list = JSON.parse(await fs.readFile(this.stateFile, 'utf8'));
+        } catch {
+            return;
         }
-        return mounts;
-    }
-    async unmountAll() {
-        const promises = [];
-        for (const remoteName of this.mounts.keys()) {
-            promises.push(this.unmountRemote(remoteName));
+        if (!Array.isArray(list) || list.length === 0) return;
+        if (!(await this.checkInstalled())) return;
+
+        for (const entry of list) {
+            if (!entry || !isValidRemoteName(entry.name)) continue;
+            try {
+                await this.mountRemote(entry.name, entry.type);
+            } catch (error) {
+                console.error(error.message);
+            }
         }
-        await Promise.all(promises);
     }
 }
 

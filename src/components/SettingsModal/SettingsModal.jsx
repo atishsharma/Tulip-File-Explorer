@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useModal } from '../../hooks/useModal';
 import logo from '../../assets/logo1.png';
 import './SettingsModal.css';
 
@@ -13,15 +13,23 @@ const COLOR_PRESETS = [
     { id: 'indigo', name: 'Deep Indigo', hue: 235, preview: '#6366f1' },
 ];
 
-function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, onThemeChange }) {
+function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, onThemeChange, version }) {
+    const dialogRef = useModal(isOpen, onClose);
     if (!isOpen) return null;
 
     return (
         <div className="settings-overlay" onClick={onClose}>
-            <div className="settings-modal card scale-in" onClick={(e) => e.stopPropagation()}>
+            <div
+                ref={dialogRef}
+                className="settings-modal card scale-in"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="settings-title"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <header className="settings-header">
-                    <h2>Settings</h2>
-                    <button className="settings-close" onClick={onClose}>
+                    <h2 id="settings-title">Settings</h2>
+                    <button className="settings-close" onClick={onClose} aria-label="Close">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
@@ -37,6 +45,7 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                             <div className="theme-toggle-group">
                                 <button
                                     className={`theme-option ${theme === 'light' ? 'active' : ''}`}
+                                    aria-pressed={theme === 'light'}
                                     onClick={() => onThemeChange('light')}
                                 >
                                     <span className="theme-icon">☀️</span>
@@ -44,6 +53,7 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                                 </button>
                                 <button
                                     className={`theme-option ${theme === 'dark' ? 'active' : ''}`}
+                                    aria-pressed={theme === 'dark'}
                                     onClick={() => onThemeChange('dark')}
                                 >
                                     <span className="theme-icon">🌙</span>
@@ -51,6 +61,7 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                                 </button>
                                 <button
                                     className={`theme-option ${theme === 'auto' ? 'active' : ''}`}
+                                    aria-pressed={theme === 'auto'}
                                     onClick={() => onThemeChange('auto')}
                                 >
                                     <span className="theme-icon">🖥️</span>
@@ -70,6 +81,7 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                                     <button
                                         key={color.id}
                                         className={`color-option ${currentColor === color.id ? 'active' : ''}`}
+                                        aria-pressed={currentColor === color.id}
                                         onClick={() => onColorChange(color.id)}
                                         title={color.name}
                                     >
@@ -99,7 +111,7 @@ function SettingsModal({ isOpen, onClose, currentColor, onColorChange, theme, on
                                 <img src={logo} alt="Tulip" className="about-logo" />
                                 <div className="about-app-info">
                                     <span className="about-app-name">Tulip File Explorer</span>
-                                    <span className="about-version">Version 1.4.3-2</span>
+                                    {version && <span className="about-version">Version {version}</span>}
                                 </div>
                             </div>
                             <div className="about-info">
