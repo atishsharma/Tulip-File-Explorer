@@ -28,7 +28,7 @@ A modern, fast, and beautiful file explorer built with **React**, **Electron**, 
   - `F2` to Rename, `Alt + Enter` for Properties, `Enter` to open.
   - `Ctrl + A` to Select All, `Shift + Arrow Keys` / `Shift + Click` for range selection.
   - `Alt + ←` / `Backspace` Back, `Alt + →` Forward, `Alt + ↑` Up, `F5` Refresh.
-- **Cross-Platform**: Builds for Windows (zip), macOS (zip) and Linux (deb, AppImage).
+- **Cross-Platform**: Builds for Windows (zip), macOS (zip) and Linux (deb, AppImage, tar.gz).
 
 ## 🛠 Tech Stack
 
@@ -82,7 +82,7 @@ npm run check  # lint + test + build
 
 ### Building for Production
 
-To create distributables (zip / deb / AppImage):
+To create distributables (zip / deb / AppImage / tar.gz):
 
 ```bash
 npm run dist
