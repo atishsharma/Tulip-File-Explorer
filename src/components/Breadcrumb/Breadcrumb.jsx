@@ -1,34 +1,15 @@
 import { useState, useMemo } from 'react';
+import { splitPath, THIS_PC } from '../../utils/paths';
 import './Breadcrumb.css';
 
 function Breadcrumb({ currentPath, onNavigate }) {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState('');
 
-    const pathParts = useMemo(() => {
-        if (!currentPath) return [];
-
-        const separator = currentPath.includes('\\') ? '\\' : '/';
-        const parts = currentPath.split(separator).filter(Boolean);
-
-        // Build path for each part
-        return parts.map((part, index) => {
-            let path;
-            if (currentPath.includes('\\')) {
-                // Windows
-                path = parts.slice(0, index + 1).join('\\');
-                if (index === 0) path += '\\';
-            } else {
-                // Unix
-                path = '/' + parts.slice(0, index + 1).join('/');
-            }
-
-            return { name: part, path };
-        });
-    }, [currentPath]);
+    const pathParts = useMemo(() => splitPath(currentPath), [currentPath]);
 
     const handleStartEdit = () => {
-        setEditValue(currentPath);
+        setEditValue(currentPath === THIS_PC ? '' : currentPath);
         setIsEditing(true);
     };
 
@@ -57,14 +38,26 @@ function Breadcrumb({ currentPath, onNavigate }) {
                         onBlur={() => setIsEditing(false)}
                         onKeyDown={handleKeyDown}
                         className="breadcrumb-input"
+                        aria-label="Folder path"
+                        placeholder="Type a path and press Enter"
                         autoFocus
                     />
                 </form>
             ) : (
                 <div className="breadcrumb-path" onClick={handleStartEdit}>
                     <span className="breadcrumb-icon">📁</span>
-                    {pathParts.length === 0 ? (
-                        <span className="breadcrumb-part">Root</span>
+                    {currentPath === THIS_PC ? (
+                        <span className="breadcrumb-part">This PC</span>
+                    ) : pathParts.length === 0 ? (
+                        <button
+                            className="breadcrumb-part"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onNavigate(currentPath || '/');
+                            }}
+                        >
+                            Root
+                        </button>
                     ) : (
                         pathParts.map((part, index) => (
                             <span key={part.path} className="breadcrumb-segment">

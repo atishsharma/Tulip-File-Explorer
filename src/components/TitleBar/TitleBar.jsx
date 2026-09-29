@@ -31,6 +31,7 @@ function TitleBar({ showPreview, onTogglePreview, onOpenSettings }) {
                     className="titlebar-btn settings-btn"
                     onClick={onOpenSettings}
                     title="Settings"
+                        aria-label="Settings"
                 >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="3" />
@@ -43,6 +44,8 @@ function TitleBar({ showPreview, onTogglePreview, onOpenSettings }) {
                     className={`titlebar-btn preview-toggle ${showPreview ? 'active' : ''}`}
                     onClick={onTogglePreview}
                     title={showPreview ? 'Hide preview panel' : 'Show preview panel'}
+                    aria-label={showPreview ? 'Hide preview panel' : 'Show preview panel'}
+                    aria-pressed={showPreview}
                 >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -55,6 +58,7 @@ function TitleBar({ showPreview, onTogglePreview, onOpenSettings }) {
                         className="titlebar-btn window-btn minimize"
                         onClick={handleMinimize}
                         title="Minimize"
+                        aria-label="Minimize"
                     >
                         <svg width="12" height="12" viewBox="0 0 12 12">
                             <rect y="5" width="12" height="2" fill="currentColor" />
@@ -65,6 +69,7 @@ function TitleBar({ showPreview, onTogglePreview, onOpenSettings }) {
                         className="titlebar-btn window-btn maximize"
                         onClick={handleMaximize}
                         title="Maximize"
+                        aria-label="Maximize"
                     >
                         <svg width="12" height="12" viewBox="0 0 12 12">
                             <rect x="1" y="1" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -75,6 +80,7 @@ function TitleBar({ showPreview, onTogglePreview, onOpenSettings }) {
                         className="titlebar-btn window-btn close"
                         onClick={handleClose}
                         title="Close"
+                        aria-label="Close"
                     >
                         <svg width="12" height="12" viewBox="0 0 12 12">
                             <path d="M1 1L11 11M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

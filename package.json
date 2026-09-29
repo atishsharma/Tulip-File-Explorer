@@ -11,7 +11,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5174 && electron .\"",
+    "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5174 && electron .\"",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run lint && npm run test && npm run build",
     "dist": "vite build && electron-builder --win --mac --linux"
   },
   "dependencies": {
@@ -19,12 +22,18 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
-    "concurrently": "^8.2.2",
-    "electron": "^28.3.3",
-    "electron-builder": "^26.4.0",
-    "vite": "^5.0.12",
-    "wait-on": "^7.2.0"
+    "@eslint/js": "^10.0.1",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.12.0",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2",
+    "wait-on": "^9.5.0"
   },
   "build": {
     "appId": "com.tulip.fileexplorer",
@@ -41,7 +50,8 @@
       "!**/docs/**"
     ],
     "directories": {
-      "buildResources": "assets"
+      "buildResources": "build",
+      "output": "release"
     },
     "mac": {
       "icon": "build/icons/512x512.png",
@@ -71,9 +81,18 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "category": "Utility"
     }
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

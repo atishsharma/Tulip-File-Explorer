@@ -293,3 +293,15 @@
 .fade-in {
     animation: fadeIn var(--transition-normal);
 }
+/* Cards are buttons for keyboard access; reset native button styling */
+button.glass-card {
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    width: 100%;
+}
+
+.glass-card:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}

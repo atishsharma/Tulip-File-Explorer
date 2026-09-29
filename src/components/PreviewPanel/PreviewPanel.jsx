@@ -1,60 +1,53 @@
 import { useState, useEffect, useRef } from 'react';
 import { getFileIcon } from '../../utils/fileIcons';
 import { formatFileSize, formatDate, getFileType } from '../../utils/formatters';
+import { fileUrl } from '../../utils/paths';
 import './PreviewPanel.css';
 
-function PreviewPanel({ item, onClose }) {
-    const [preview, setPreview] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [metadata, setMetadata] = useState(null);
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico', '.svg', '.tiff', '.tif'];
+const VIDEO_EXTS = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v'];
+
+function PreviewPanel({ item }) {
+    // Results are tagged with the item they belong to, so a slow response for a
+    // previously selected file can never replace the current preview
+    const [loaded, setLoaded] = useState({ key: null, preview: null, metadata: null });
     const [width, setWidth] = useState(280);
     const resizeRef = useRef(null);
     const isDragging = useRef(false);
 
-    // Load preview and metadata
+    const itemKey = item ? `${item.path}|${item.modified}` : null;
+    const current = loaded.key === itemKey ? loaded : null;
+    const preview = item?.isDirectory ? { success: true, type: 'folder' } : current?.preview ?? null;
+    const metadata = current?.metadata ?? null;
+    const loading = !!item && !item.isDirectory && !current;
+
     useEffect(() => {
-        if (!item) {
-            setPreview(null);
-            setMetadata(null);
-            return;
-        }
+        if (!item || item.isDirectory || !window.electronAPI) return undefined;
+        let cancelled = false;
 
-        async function loadPreview() {
-            if (!window.electronAPI) return;
-            setLoading(true);
+        (async () => {
+            let result;
+            let meta = null;
             try {
-                const result = await window.electronAPI.readFilePreview(item.path);
-                setPreview(result);
-
-                // Load metadata for images
+                result = await window.electronAPI.readFilePreview(item.path);
                 const ext = (item.extension || '').toLowerCase();
-                const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.ico', '.svg'];
-                const videoExts = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm'];
-
-                if (imageExts.includes(ext)) {
-                    const meta = await window.electronAPI.getImageMetadata(item.path);
-                    if (meta.success) setMetadata({ type: 'image', ...meta.metadata });
-                } else if (videoExts.includes(ext)) {
-                    const meta = await window.electronAPI.getVideoMetadata(item.path);
-                    if (meta.success) setMetadata({ type: 'video', ...meta.metadata });
-                } else {
-                    setMetadata(null);
+                if (IMAGE_EXTS.includes(ext)) {
+                    const res = await window.electronAPI.getImageMetadata(item.path);
+                    if (res.success) meta = { type: 'image', ...res.metadata };
+                } else if (VIDEO_EXTS.includes(ext)) {
+                    const res = await window.electronAPI.getVideoMetadata(item.path);
+                    if (res.success) meta = { type: 'video', ...res.metadata };
                 }
             } catch (err) {
-                setPreview({ success: false, error: err.message });
-                setMetadata(null);
-            } finally {
-                setLoading(false);
+                result = { success: false, error: err.message };
             }
-        }
+            if (!cancelled) setLoaded({ key: itemKey, preview: result, metadata: meta });
+        })();
 
-        if (!item.isDirectory) {
-            loadPreview();
-        } else {
-            setPreview({ success: true, type: 'folder' });
-            setMetadata(null);
-        }
-    }, [item]);
+        return () => {
+            cancelled = true;
+        };
+    }, [item, itemKey]);
 
     // Resize handling
     useEffect(() => {
@@ -110,17 +103,18 @@ function PreviewPanel({ item, onClose }) {
                 <div className="preview-error">
                     <span className="preview-icon-large">⚠️</span>
                     <p>Unable to preview</p>
+                    {preview.error && <p className="preview-hint">{preview.error}</p>}
                 </div>
             );
         }
 
         switch (preview.type) {
             case 'image':
-                return <img src={preview.data} alt={item?.name} className="preview-image" />;
+                return <img src={fileUrl(preview.path)} alt={item?.name} className="preview-image" />;
             case 'video':
                 return (
                     <video controls className="preview-video" key={preview.path}>
-                        <source src={`file://${preview.path}`} />
+                        <source src={fileUrl(preview.path)} />
                     </video>
                 );
             case 'audio':
@@ -128,7 +122,7 @@ function PreviewPanel({ item, onClose }) {
                     <div className="preview-audio-container">
                         <span className="preview-icon-large">🎵</span>
                         <audio controls className="preview-audio" key={preview.path}>
-                            <source src={`file://${preview.path}`} />
+                            <source src={fileUrl(preview.path)} />
                         </audio>
                     </div>
                 );
@@ -138,6 +132,13 @@ function PreviewPanel({ item, onClose }) {
                         {preview.content}
                         {preview.truncated && <span className="truncated-notice">... (truncated)</span>}
                     </pre>
+                );
+            case 'binary':
+                return (
+                    <div className="preview-unknown">
+                        <span className="preview-icon-large">{getFileIcon(item)}</span>
+                        <p>Binary file</p>
+                    </div>
                 );
             case 'folder':
                 return (
@@ -151,6 +152,7 @@ function PreviewPanel({ item, onClose }) {
                     <div className="preview-pdf">
                         <span className="preview-icon-large">📄</span>
                         <p>PDF Document</p>
+                        <p className="preview-hint">Use Open to view in your PDF reader</p>
                     </div>
                 );
             default:
@@ -164,12 +166,15 @@ function PreviewPanel({ item, onClose }) {
     };
 
     return (
-        <aside className="preview-panel glass-panel" style={{ width }}>
+        <aside className="preview-panel glass-panel" style={{ width }} aria-label="Preview">
             {/* Resize Handle */}
             <div
                 className="resize-handle"
                 onMouseDown={handleResizeStart}
                 ref={resizeRef}
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize preview panel"
             />
 
             <div className="preview-content-wrapper">
